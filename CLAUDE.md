@@ -208,3 +208,10 @@ Wait for consent; never auto-create ADRs. Group related decisions (stacks, authe
 
 ## Code Standards
 See `.specify/memory/constitution.md` for code quality, testing, performance, security, and architecture principles.
+
+## Active Technologies
+- Python 3.13+ (constitution mandate) + Python standard library + one LLM SDK (OpenAI or Anthropic) (001-ai-productivity-assistant)
+- In-memory data structures (dict, list, set) - NO files, NO databases (001-ai-productivity-assistant)
+
+## Recent Changes
+- 001-ai-productivity-assistant: Added Python 3.13+ (constitution mandate) + Python standard library + one LLM SDK (OpenAI or Anthropic)
