@@ -17,7 +17,25 @@
       "Bash(pip3:*)",
       "Bash(cat:*)",
       "Bash(python -m unittest:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(tree:*)",
+      "Bash(timeout:*)",
+      "Bash(alembic init:*)",
+      "Bash(alembic upgrade:*)",
+      "Bash(sqlite3:*)",
+      "Bash(curl:*)",
+      "Bash(pkill:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss init:*)",
+      "Bash(npx create-next-app:*)",
+      "Bash(npm run dev)",
+      "Bash(uvicorn:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzY3OTQ2NDk2fQ.tSy0gSC_TVbd8Tj7a86LIfawSn2eTBiLjK-IEOUm5J0\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzY3OTQ2NzMxfQ.j5FuWIgk6l1tWZA9amNO26cW-vKqPWVW6iw3JFCbO8o\")",
+      "Bash(PORT=3002 npm run dev:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
