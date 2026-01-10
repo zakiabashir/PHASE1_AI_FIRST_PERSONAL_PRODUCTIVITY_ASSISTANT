@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { tasksApi } from '@/lib/api';
-import { Plus, Check, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Check, Trash2, Loader2, Edit2, X } from 'lucide-react';
 
 export default function TasksPage() {
   const router = useRouter();
@@ -21,6 +21,8 @@ export default function TasksPage() {
   const [submitting, setSubmitting] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
+  const [editingTask, setEditingTask] = useState<number | null>(null);
+  const [editFormData, setEditFormData] = useState({ title: '', description: '', priority: 'medium' });
   const authChecked = useRef(false);
 
   const fetchTasks = async () => {
@@ -88,6 +90,39 @@ export default function TasksPage() {
     if (confirm('Are you sure you want to delete this task?')) {
       await tasksApi.delete(id);
       fetchTasks();
+    }
+  };
+
+  const handleStartEdit = (task: any) => {
+    setEditingTask(task.id);
+    setEditFormData({
+      title: task.title || '',
+      description: task.description || '',
+      priority: task.priority || 'medium'
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTask(null);
+    setEditFormData({ title: '', description: '', priority: 'medium' });
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTask) return;
+
+    setSubmitting(true);
+    try {
+      await tasksApi.update(editingTask, editFormData);
+      setEditingTask(null);
+      setEditFormData({ title: '', description: '', priority: 'medium' });
+      fetchTasks();
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.detail;
+      const message = typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage || 'Failed to update task');
+      alert(message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -196,34 +231,88 @@ export default function TasksPage() {
             tasks.map((task) => (
               <Card key={task.id}>
                 <CardContent className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className={`font-semibold ${String(task.status) === 'complete' ? 'line-through text-muted-foreground' : ''}`}>
-                          {String(task.title || '')}
-                        </h3>
-                        <Badge variant={String(task.priority) === 'high' ? 'destructive' : String(task.priority) === 'medium' ? 'default' : 'secondary'}>
-                          {String(task.priority || 'medium')}
-                        </Badge>
-                        <Badge variant={String(task.status) === 'complete' ? 'default' : 'secondary'}>
-                          {String(task.status || 'pending')}
-                        </Badge>
+                  {editingTask === task.id ? (
+                    // Edit Form
+                    <form onSubmit={handleUpdate}>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor={`edit-title-${task.id}`}>Title</Label>
+                          <Input
+                            id={`edit-title-${task.id}`}
+                            value={editFormData.title}
+                            onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                            placeholder="Task title"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`edit-description-${task.id}`}>Description</Label>
+                          <Textarea
+                            id={`edit-description-${task.id}`}
+                            value={editFormData.description}
+                            onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                            placeholder="Add more details (optional)"
+                            rows={2}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`edit-priority-${task.id}`}>Priority</Label>
+                          <select
+                            id={`edit-priority-${task.id}`}
+                            value={editFormData.priority}
+                            onChange={(e) => setEditFormData({ ...editFormData, priority: e.target.value })}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          >
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                          </select>
+                        </div>
+                        <div className="flex gap-3">
+                          <Button type="submit" size="sm" disabled={submitting}>
+                            {submitting ? 'Saving...' : 'Save'}
+                          </Button>
+                          <Button type="button" size="sm" variant="outline" onClick={handleCancelEdit}>
+                            <X size={16} className="mr-1" />
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
-                      {task.description && (
-                        <p className="text-sm text-muted-foreground">{String(task.description)}</p>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      {String(task.status) !== 'complete' && (
-                        <Button size="sm" variant="outline" onClick={() => handleComplete(task.id)}>
-                          <Check size={16} />
+                    </form>
+                  ) : (
+                    // Task Display
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className={`font-semibold ${String(task.status) === 'complete' ? 'line-through text-muted-foreground' : ''}`}>
+                            {String(task.title || '')}
+                          </h3>
+                          <Badge variant={String(task.priority) === 'high' ? 'destructive' : String(task.priority) === 'medium' ? 'default' : 'secondary'}>
+                            {String(task.priority || 'medium')}
+                          </Badge>
+                          <Badge variant={String(task.status) === 'complete' ? 'default' : 'secondary'}>
+                            {String(task.status || 'pending')}
+                          </Badge>
+                        </div>
+                        {task.description && (
+                          <p className="text-sm text-muted-foreground">{String(task.description)}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        {String(task.status) !== 'complete' && (
+                          <Button size="sm" variant="outline" onClick={() => handleComplete(task.id)}>
+                            <Check size={16} />
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" onClick={() => handleStartEdit(task)}>
+                          <Edit2 size={16} />
                         </Button>
-                      )}
-                      <Button size="sm" variant="outline" onClick={() => handleDelete(task.id)}>
-                        <Trash2 size={16} className="text-destructive" />
-                      </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleDelete(task.id)}>
+                          <Trash2 size={16} className="text-destructive" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             ))
