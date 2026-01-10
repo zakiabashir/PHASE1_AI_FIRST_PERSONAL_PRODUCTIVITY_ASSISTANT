@@ -26,16 +26,24 @@ export default function TasksPage() {
   const authChecked = useRef(false);
 
   const fetchTasks = async () => {
+    console.log('[Tasks Page] Fetching tasks...');
+    console.log('[Tasks Page] API Base URL:', process.env.NEXT_PUBLIC_API_BASE_URL);
     try {
       const filters: Record<string, string> = {};
       if (statusFilter) filters.status = statusFilter;
       if (priorityFilter) filters.priority = priorityFilter;
+      console.log('[Tasks Page] Filters:', filters);
       const data = await tasksApi.list(filters);
+      console.log('[Tasks Page] API Response:', data);
       // Ensure we have an array of valid task objects
       const items = data?.items || [];
-      setTasks(items.filter((t: any) => t && typeof t === 'object' && t.id));
+      const validTasks = items.filter((t: any) => t && typeof t === 'object' && t.id);
+      console.log('[Tasks Page] Valid tasks:', validTasks);
+      console.log('[Tasks Page] Tasks count:', validTasks.length);
+      setTasks(validTasks);
     } catch (error: any) {
-      console.error('Failed to fetch tasks:', error);
+      console.error('[Tasks Page] Failed to fetch tasks:', error);
+      console.error('[Tasks Page] Error response:', error.response);
       setTasks([]);
     } finally {
       setLoading(false);
@@ -48,6 +56,8 @@ export default function TasksPage() {
     authChecked.current = true;
 
     const token = localStorage.getItem('token');
+    console.log('[Tasks Page] Token exists:', !!token);
+    console.log('[Tasks Page] Token value (first 20 chars):', token?.substring(0, 20));
     if (!token) {
       router.push('/login');
       return;
