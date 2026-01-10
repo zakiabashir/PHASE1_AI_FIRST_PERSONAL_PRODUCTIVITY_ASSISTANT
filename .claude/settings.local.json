@@ -38,7 +38,11 @@
       "Bash(git push:*)",
       "Bash(pip install:*)",
       "Bash(netstat:*)",
-      "Bash(ss:*)"
+      "Bash(ss:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(vercel:*)",
+      "Bash(chmod:*)",
+      "Bash(VERCEL_TOKEN=6AKFjdiNOWVQgIfovgdCS7or vercel:*)"
     ]
   }
 }
