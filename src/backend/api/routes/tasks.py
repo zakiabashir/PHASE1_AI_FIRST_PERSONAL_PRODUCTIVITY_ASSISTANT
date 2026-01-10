@@ -51,6 +51,17 @@ async def list_tasks(
     return TaskListResponse(total=total, items=tasks)
 
 
+@router.get("/summary/overview", response_model=TaskSummary)
+async def get_task_summary(
+    user_id: UserIdDep,
+    db: DbDep
+):
+    """Get task summary statistics."""
+    repo = TaskRepository(user_id, db)
+    summary_data = repo.get_summary()
+    return TaskSummary(**summary_data)
+
+
 @router.get("/{task_id}", response_model=TaskResponse)
 async def get_task(
     task_id: int,
@@ -127,14 +138,3 @@ async def complete_task(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
-
-
-@router.get("/summary/overview", response_model=TaskSummary)
-async def get_task_summary(
-    user_id: UserIdDep,
-    db: DbDep
-):
-    """Get task summary statistics."""
-    repo = TaskRepository(user_id, db)
-    summary_data = repo.get_summary()
-    return TaskSummary(**summary_data)
