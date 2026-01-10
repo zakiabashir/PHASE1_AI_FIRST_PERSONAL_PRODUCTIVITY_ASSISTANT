@@ -62,8 +62,22 @@ async def health_check():
 @app.on_event("startup")
 async def startup_event():
     """Initialize database tables on startup."""
-    from src.backend.core.database import init_db
-    init_db()
+    try:
+        # Check if DATABASE_URL is set
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            import logging
+            logging.warning("DATABASE_URL not set - skipping database initialization")
+            return
+
+        from src.backend.core.database import init_db
+        init_db()
+        import logging
+        logging.info("Database initialized successfully")
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to initialize database: {e}")
+        # Don't fail startup - let the app start anyway
 
 
 if __name__ == "__main__":
