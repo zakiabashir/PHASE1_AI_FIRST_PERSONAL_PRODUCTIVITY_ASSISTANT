@@ -11,6 +11,7 @@ const api = axios.create({
   },
   timeout: 10000,
   withCredentials: true,
+  maxRedirects: 5,
 });
 
 // Request interceptor - Add JWT token and log request URL
@@ -79,7 +80,7 @@ export const tasksApi = {
     if (filters?.priority) params.append('priority', filters.priority);
 
     const queryString = params.toString();
-    const url = queryString ? `/api/tasks/?${queryString}` : '/api/tasks';
+    const url = queryString ? `/api/tasks/?${queryString}` : '/api/tasks/';
     console.log('[API] Fetching tasks from:', url);
     console.log('[API] Base URL:', API_BASE_URL);
     const response = await api.get(url);
