@@ -1,41 +1,81 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { aiApi, tasksApi } from '@/lib/api';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Trash2, RefreshCw } from 'lucide-react';
+
+interface ChatMessage {
+  id: number;
+  role: 'user' | 'assistant';
+  content: string;
+  intent?: string;
+  timestamp?: string;
+}
 
 export default function AIChatPage() {
   const router = useRouter();
-  const [messages, setMessages] = useState<Array<{ role: 'user' | 'ai'; content: string; timestamp?: string }>>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [useStreaming, setUseStreaming] = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const initialized = useRef(false);
 
+  // Load chat history on mount
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
     const token = localStorage.getItem('token');
     if (!token) {
       router.push('/login');
+      return;
     }
+
+    loadChatHistory();
   }, [router]);
+
+  const loadChatHistory = async () => {
+    try {
+      setHistoryLoading(true);
+      const history = await aiApi.getHistory(50);
+      setMessages(history);
+    } catch (error: any) {
+      console.error('Failed to load chat history:', error);
+      setMessages([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || loading) return;
 
-    const userMessage = { role: 'user' as const, content: input, timestamp: new Date().toISOString() };
+    const userMessage: ChatMessage = {
+      id: Date.now(),
+      role: 'user',
+      content: input,
+      timestamp: new Date().toISOString()
+    };
     setMessages((prev) => [...prev, userMessage]);
     const userInput = input;
     setInput('');
     setLoading(true);
 
     // Create an empty AI message that will be updated during streaming
-    const aiMessageIndex = messages.length + 1;
-    setMessages((prev) => [...prev, { role: 'ai', content: '' }]);
+    const aiMessageId = Date.now() + 1;
+    const aiMessage: ChatMessage = {
+      id: aiMessageId,
+      role: 'assistant',
+      content: ''
+    };
+    setMessages((prev) => [...prev, aiMessage]);
 
     if (useStreaming) {
       // Use streaming
@@ -46,31 +86,29 @@ export default function AIChatPage() {
         // onChunk
         (chunk: string) => {
           streamedContent += chunk;
-          setMessages((prev) => {
-            const newMessages = [...prev];
-            if (newMessages[aiMessageIndex]) {
-              newMessages[aiMessageIndex] = { ...newMessages[aiMessageIndex], content: streamedContent };
-            }
-            return newMessages;
-          });
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId
+                ? { ...msg, content: streamedContent }
+                : msg
+            )
+          );
         },
         // onDone
         (result: any) => {
           setLoading(false);
-          // Optionally refresh tasks if something was modified
-          if (result.result) {
-            console.log('Task operation completed:', result);
-          }
+          // Reload history to get the persisted message
+          setTimeout(() => loadChatHistory(), 500);
         },
         // onError
         (error: string) => {
-          setMessages((prev) => {
-            const newMessages = [...prev];
-            if (newMessages[aiMessageIndex]) {
-              newMessages[aiMessageIndex] = { ...newMessages[aiMessageIndex], content: `Error: ${error}` };
-            }
-            return newMessages;
-          });
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId
+                ? { ...msg, content: `Error: ${error}` }
+                : msg
+            )
+          );
           setLoading(false);
         }
       );
@@ -78,31 +116,47 @@ export default function AIChatPage() {
       // Use non-streaming (original method)
       try {
         const response = await aiApi.sendMessage(userInput);
-        setMessages((prev) => {
-          const newMessages = [...prev];
-          if (newMessages[aiMessageIndex]) {
-            newMessages[aiMessageIndex] = {
-              role: 'ai',
-              content: response.message || 'Something went wrong'
-            };
-          }
-          return newMessages;
-        });
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === aiMessageId
+              ? {
+                  ...msg,
+                  content: response.message || 'Something went wrong',
+                  intent: response.intent
+                }
+              : msg
+          )
+        );
 
         if (response.success) {
           console.log('Task completed:', response);
         }
+
+        // Reload history to get the persisted message
+        setTimeout(() => loadChatHistory(), 500);
       } catch (error: any) {
         const errorMessage = error.response?.data?.detail || 'Failed to process message';
-        setMessages((prev) => {
-          const newMessages = [...prev];
-          if (newMessages[aiMessageIndex]) {
-            newMessages[aiMessageIndex] = { role: 'ai', content: `Error: ${errorMessage}` };
-          }
-          return newMessages;
-        });
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === aiMessageId
+              ? { ...msg, content: `Error: ${errorMessage}` }
+              : msg
+          )
+        );
       } finally {
         setLoading(false);
+      }
+    }
+  };
+
+  const handleClearHistory = async () => {
+    if (confirm('Are you sure you want to clear old chat history (older than 30 days)?')) {
+      try {
+        await aiApi.clearHistory(30);
+        await loadChatHistory();
+      } catch (error: any) {
+        console.error('Failed to clear history:', error);
+        alert('Failed to clear chat history');
       }
     }
   };
@@ -119,6 +173,13 @@ export default function AIChatPage() {
     localStorage.removeItem('user');
     router.push('/login');
   };
+
+  // Convert DB messages to display format
+  const displayMessages = messages.map(msg => ({
+    role: msg.role === 'assistant' ? 'ai' : 'user',
+    content: msg.content,
+    timestamp: msg.timestamp
+  }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -143,9 +204,31 @@ export default function AIChatPage() {
       </header>
 
       <main className="container mx-auto px-6 py-8">
-        <div className="mb-6">
-          <h2 className="text-3xl font-bold mb-2">AI Chat</h2>
-          <p className="text-muted-foreground">Manage tasks using natural language {useStreaming && 'with streaming responses'}</p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold mb-2">AI Chat</h2>
+            <p className="text-muted-foreground">Manage tasks using natural language {useStreaming && 'with streaming responses'}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadChatHistory}
+              disabled={historyLoading || loading}
+            >
+              <RefreshCw size={16} className={`mr-2 ${historyLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearHistory}
+              disabled={loading}
+            >
+              <Trash2 size={16} className="mr-2" />
+              Clear Old History
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -153,11 +236,17 @@ export default function AIChatPage() {
             <Card className="h-[600px] flex flex-col">
               <CardHeader>
                 <CardTitle>Chat</CardTitle>
-                <CardDescription>Talk to AI to manage your tasks</CardDescription>
+                <CardDescription>
+                  {historyLoading ? 'Loading chat history...' : `Chat history (${displayMessages.length} messages)`}
+                </CardDescription>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col p-0">
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {messages.length === 0 ? (
+                  {historyLoading ? (
+                    <div className="h-full flex items-center justify-center">
+                      <Loader2 size={24} className="animate-spin text-muted-foreground" />
+                    </div>
+                  ) : displayMessages.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-center">
                       <div className="text-4xl mb-4">🤖</div>
                       <h3 className="font-semibold mb-2">AI Productivity Assistant</h3>
@@ -178,7 +267,7 @@ export default function AIChatPage() {
                       </div>
                     </div>
                   ) : (
-                    messages.map((msg, i) => (
+                    displayMessages.map((msg, i) => (
                       <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${
                           msg.role === 'user'
@@ -197,7 +286,7 @@ export default function AIChatPage() {
                       </div>
                     ))
                   )}
-                  {loading && messages.length > 0 && messages[messages.length - 1].content === '' && (
+                  {loading && displayMessages.length > 0 && displayMessages[displayMessages.length - 1].content === '' && (
                     <div className="flex justify-start">
                       <div className="bg-muted rounded-2xl px-4 py-2 flex items-center gap-2">
                         <Loader2 size={16} className="animate-spin" />

@@ -11,7 +11,7 @@ import json
 from src.backend.api.schemas.ai import AIChatRequest, AIChatResponse
 from src.backend.api.schemas.tasks import TaskResponse
 from src.backend.dependencies import UserIdDep, DbDep
-from src.backend.core.repository import TaskRepository
+from src.backend.core.repository import TaskRepository, ChatRepository
 
 # Import existing AI components from Phase I
 from src.ai.intent_parser import classify_intent, Intent
@@ -99,7 +99,12 @@ async def ai_chat(
     Raises:
         HTTPException: If AI processing fails
     """
+    chat_repo = ChatRepository(user_id, db)
+
     try:
+        # Save user message to history
+        chat_repo.save_message("user", request.message)
+
         # Step 1: Classify intent using existing AI layer
         intent, entities, confidence = classify_intent(
             request.message,
@@ -108,10 +113,12 @@ async def ai_chat(
 
         # Step 2: Check confidence threshold
         if confidence < CONFIDENCE_THRESHOLD:
+            error_message = f"I'm not sure what you want to do. Confidence: {confidence:.2f}. " \
+                          f"Could you please rephrase? Try: 'create task X', 'show tasks', 'complete task 1'"
+            chat_repo.save_message("assistant", error_message, intent=intent.value)
             return AIChatResponse(
                 intent=intent.value,
-                message=f"I'm not sure what you want to do. Confidence: {confidence:.2f}. "
-                        f"Could you please rephrase? Try: 'create task X', 'show tasks', 'complete task 1'",
+                message=error_message,
                 success=False
             )
 
@@ -122,6 +129,9 @@ async def ai_chat(
         repo = TaskRepository(user_id, db)
         result, message = _execute_intent(intent, extracted, repo)
 
+        # Save assistant message to history
+        chat_repo.save_message("assistant", message, intent=intent.value)
+
         return AIChatResponse(
             intent=intent.value,
             result=result,
@@ -130,14 +140,17 @@ async def ai_chat(
         )
 
     except ValueError as e:
+        chat_repo.save_message("assistant", str(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
+        error_msg = f"AI processing error: {str(e)}"
+        chat_repo.save_message("assistant", error_msg)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"AI processing error: {str(e)}"
+            detail=error_msg
         )
 
 
@@ -157,8 +170,13 @@ async def ai_chat_stream(
     Returns:
         StreamingResponse with chunks of the response
     """
+    chat_repo = ChatRepository(user_id, db)
+
     async def generate_stream():
         try:
+            # Save user message to history
+            chat_repo.save_message("user", request.message)
+
             # Step 1: Classify intent
             intent, entities, confidence = classify_intent(
                 request.message,
@@ -169,6 +187,7 @@ async def ai_chat_stream(
             if confidence < CONFIDENCE_THRESHOLD:
                 error_msg = f"I'm not sure what you want to do. Confidence: {confidence:.2f}. "
                 error_msg += "Could you please rephrase? Try: 'create task X', 'show tasks', 'complete task 1'"
+                chat_repo.save_message("assistant", error_msg, intent=intent.value)
                 yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
                 return
 
@@ -181,17 +200,25 @@ async def ai_chat_stream(
 
             # Stream the response word by word
             words = message.split()
+            streamed_message = ""
             for i, word in enumerate(words):
                 chunk = word + " " if i < len(words) - 1 else word
+                streamed_message += chunk
                 yield f"data: {json.dumps({'type': 'token', 'content': chunk})}\n\n"
+
+            # Save assistant message to history
+            chat_repo.save_message("assistant", streamed_message.strip(), intent=intent.value)
 
             # Send final result
             yield f"data: {json.dumps({'type': 'done', 'intent': intent.value, 'result': result})}\n\n"
 
         except ValueError as e:
+            chat_repo.save_message("assistant", str(e))
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
         except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'message': f'AI processing error: {str(e)}'})}\n\n"
+            error_msg = f'AI processing error: {str(e)}'
+            chat_repo.save_message("assistant", error_msg)
+            yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
 
     return StreamingResponse(
         generate_stream(),
@@ -201,6 +228,61 @@ async def ai_chat_stream(
             "Connection": "keep-alive",
         }
     )
+
+
+@router.get("/history")
+async def get_chat_history(
+    hours: int = 24,
+    limit: int = 100,
+    user_id: UserIdDep,
+    db: DbDep
+):
+    """Get chat history for the user.
+
+    Args:
+        hours: Number of hours to look back (default: 24)
+        limit: Maximum number of messages to return (default: 100)
+        user_id: Authenticated user ID
+        db: Database session
+
+    Returns:
+        List of chat messages
+    """
+    chat_repo = ChatRepository(user_id, db)
+    history = chat_repo.get_recent_messages(limit=limit)
+
+    return [
+        {
+            "id": msg.id,
+            "role": msg.role.value,
+            "content": msg.content,
+            "intent": msg.intent,
+            "timestamp": msg.created_at.isoformat() if msg.created_at else None
+        }
+        for msg in history
+    ]
+
+
+@router.delete("/history")
+async def clear_chat_history(
+    days: int = 30,
+    user_id: UserIdDep,
+    db: DbDep
+):
+    """Clear old chat history for the user.
+
+    Args:
+        days: Keep messages newer than this many days (default: 30)
+        user_id: Authenticated user ID
+        db: Database session
+
+    Returns:
+        Number of messages deleted
+    """
+    chat_repo = ChatRepository(user_id, db)
+    deleted = chat_repo.clear_old_messages(days=days)
+
+    return {"deleted": deleted, "message": f"Deleted {deleted} old messages"}
 
 
 def _execute_intent(intent: Intent, entities: dict, repo: TaskRepository) -> tuple:

@@ -5,8 +5,10 @@ Adapts existing in-memory CRUD to work with SQLAlchemy
 
 from typing import Optional, List
 from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
 
 from src.backend.models.task import Task, TaskStatus, TaskPriority
+from src.backend.models.chat import ChatMessage, MessageRole
 
 
 class TaskRepository:
@@ -205,3 +207,97 @@ class TaskRepository:
             "complete_count": complete,
             "high_priority_pending": high_pending
         }
+
+
+class ChatRepository:
+    """Repository for chat message operations with user isolation."""
+
+    def __init__(self, user_id: int, db: Session):
+        """Initialize repository with user context.
+
+        Args:
+            user_id: ID of the authenticated user
+            db: Database session
+        """
+        self.user_id = user_id
+        self.db = db
+
+    def save_message(self, role: str, content: str, intent: Optional[str] = None) -> ChatMessage:
+        """Save a chat message for the user.
+
+        Args:
+            role: Message role (user/assistant)
+            content: Message content
+            intent: Optional intent classification for assistant messages
+
+        Returns:
+            Created ChatMessage object
+        """
+        db_message = ChatMessage(
+            user_id=self.user_id,
+            role=MessageRole(role),
+            content=content,
+            intent=intent
+        )
+        self.db.add(db_message)
+        self.db.commit()
+        self.db.refresh(db_message)
+
+        return db_message
+
+    def get_recent_messages(self, limit: int = 50) -> List[ChatMessage]:
+        """Get recent chat messages for the user.
+
+        Args:
+            limit: Maximum number of messages to return
+
+        Returns:
+            List of ChatMessage objects ordered by creation time
+        """
+        return self.db.query(ChatMessage).filter(
+            ChatMessage.user_id == self.user_id
+        ).order_by(ChatMessage.created_at).limit(limit).all()
+
+    def get_conversation_history(self, hours: int = 24, limit: int = 100) -> List[dict]:
+        """Get conversation history within a time window.
+
+        Args:
+            hours: Number of hours to look back
+            limit: Maximum number of messages to return
+
+        Returns:
+            List of message dictionaries with role and content
+        """
+        since = datetime.utcnow() - timedelta(hours=hours)
+        
+        messages = self.db.query(ChatMessage).filter(
+            ChatMessage.user_id == self.user_id,
+            ChatMessage.created_at >= since
+        ).order_by(ChatMessage.created_at).limit(limit).all()
+
+        return [
+            {
+                "role": msg.role.value,
+                "content": msg.content
+            }
+            for msg in messages
+        ]
+
+    def clear_old_messages(self, days: int = 30) -> int:
+        """Delete messages older than specified days.
+
+        Args:
+            days: Number of days to keep messages
+
+        Returns:
+            Number of messages deleted
+        """
+        cutoff = datetime.utcnow() - timedelta(days=days)
+        
+        deleted = self.db.query(ChatMessage).filter(
+            ChatMessage.user_id == self.user_id,
+            ChatMessage.created_at < cutoff
+        ).delete()
+        
+        self.db.commit()
+        return deleted

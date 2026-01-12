@@ -188,4 +188,14 @@ export const aiApi = {
       onError(error.message || 'Failed to send message');
     }
   },
+
+  getHistory: async (limit = 100) => {
+    const response = await api.get(`/api/ai/history?limit=${limit}`);
+    return response.data;
+  },
+
+  clearHistory: async (days = 30) => {
+    const response = await api.delete(`/api/ai/history?days=${days}`);
+    return response.data;
+  },
 };

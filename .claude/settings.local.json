@@ -45,7 +45,9 @@
       "Bash(VERCEL_TOKEN=6AKFjdiNOWVQgIfovgdCS7or vercel:*)",
       "Bash(printf:*)",
       "Bash(git ls-tree:*)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(git clone:*)",
+      "Bash(git config:*)"
     ]
   }
 }
