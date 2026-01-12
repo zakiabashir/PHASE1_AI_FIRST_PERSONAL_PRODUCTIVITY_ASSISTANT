@@ -117,9 +117,11 @@ async def ai_chat(
 
         # Step 2: Check confidence threshold
         if confidence < CONFIDENCE_THRESHOLD:
-            error_message = "I'd be happy to help! Could you please rephrase that? " \
-                          "Here are some examples: 'create a task called Review Project', " \
-                          "'show my tasks', 'mark task 1 as complete'."
+            error_message = "I'm not fully sure what you'd like to do.\n\n" \
+                          "You can try commands like:\n" \
+                          "• Create a task\n" \
+                          "• Show my tasks\n" \
+                          "• Complete task #1"
             chat_repo.save_message("assistant", error_message, intent=intent.value)
             return AIChatResponse(
                 intent=intent.value,
@@ -194,8 +196,11 @@ async def ai_chat_stream(
 
             # Step 2: Check confidence threshold
             if confidence < CONFIDENCE_THRESHOLD:
-                error_msg = "I'd be happy to help! Could you please rephrase that? "
-                error_msg += "Here are some examples: 'create a task called Review Project', 'show my tasks', 'mark task 1 as complete'."
+                error_msg = "I'm not fully sure what you'd like to do.\n\n"
+                error_msg += "You can try commands like:\n"
+                error_msg += "• Create a task\n"
+                error_msg += "• Show my tasks\n"
+                error_msg += "• Complete task #1"
                 chat_repo.save_message("assistant", error_msg, intent=intent.value)
                 yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
                 return
@@ -311,7 +316,8 @@ def _execute_intent(intent: Intent, entities: dict, repo: TaskRepository) -> tup
             description=entities.get("description"),
             priority=entities.get("priority") or "medium"
         )
-        return _task_to_dict(task), f"Great! I've created the task '{task.title}' for you."
+        message = f"✅ Task created successfully\nTitle: {task.title}\nTask ID: {task.id}"
+        return _task_to_dict(task), message
 
     elif intent == Intent.READ:
         tasks = repo.list_tasks(
@@ -322,9 +328,9 @@ def _execute_intent(intent: Intent, entities: dict, repo: TaskRepository) -> tup
         if count == 0:
             message = "You don't have any tasks matching those criteria. Would you like to create one?"
         elif count == 1:
-            message = "Here's the task I found."
+            message = "📋 Here's the task I found."
         else:
-            message = f"Here are your {count} tasks."
+            message = f"📋 Here are your {count} tasks."
         return {
             "tasks": [_task_to_dict(t) for t in tasks],
             "count": count
@@ -334,7 +340,7 @@ def _execute_intent(intent: Intent, entities: dict, repo: TaskRepository) -> tup
         # Get task ID from entities
         task_id = _extract_task_id(entities)
         if not task_id:
-            raise ValueError("Could you please specify which task you'd like to update? For example: 'update task 1' or 'change the first task'.")
+            raise ValueError("⚠️ Please specify which task you'd like to update.\nExample: 'update task 1' or 'change the first task'")
 
         task = repo.update_task(
             task_id=task_id,
@@ -343,23 +349,23 @@ def _execute_intent(intent: Intent, entities: dict, repo: TaskRepository) -> tup
             status=entities.get("status"),
             priority=entities.get("priority")
         )
-        return _task_to_dict(task), f"Done! I've updated '{task.title}' for you."
+        return _task_to_dict(task), f"✅ Task updated: {task.title}"
 
     elif intent == Intent.DELETE:
         task_id = _extract_task_id(entities)
         if not task_id:
-            raise ValueError("Which task would you like me to remove? Please specify, for example: 'delete task 1'.")
+            raise ValueError("⚠️ Please specify which task to delete.\nExample: 'delete task 1'")
 
         repo.delete_task(task_id=task_id)
-        return {"deleted": task_id}, "I've removed that task for you."
+        return {"deleted": task_id}, f"✅ Task {task_id} deleted successfully"
 
     elif intent == Intent.COMPLETE:
         task_id = _extract_task_id(entities)
         if not task_id:
-            raise ValueError("Which task would you like to mark as complete? Please specify, for example: 'complete task 1'.")
+            raise ValueError("❌ Please specify which task to complete.\nExample: 'complete task 1'")
 
         task = repo.complete_task(task_id=task_id)
-        return _task_to_dict(task), f"Excellent! '{task.title}' is now marked as complete."
+        return _task_to_dict(task), f"✅ Task marked as complete: {task.title}"
 
     elif intent == Intent.SUMMARIZE:
         summary = repo.get_summary()
@@ -368,9 +374,9 @@ def _execute_intent(intent: Intent, entities: dict, repo: TaskRepository) -> tup
         if total == 0:
             return summary, "You don't have any tasks yet. Would you like to create one?"
         elif pending == 0:
-            return summary, "You've completed all your tasks. Great job!"
+            return summary, "🎉 You've completed all your tasks!"
         else:
-            return summary, f"You have {pending} task(s) pending out of {total} total."
+            return summary, f"📋 Task Summary\nYou have {pending} task(s) pending out of {total} total."
 
     else:
         return None, "I'm not sure how to help with that. Try asking me to create, list, update, or complete a task."
