@@ -14,6 +14,7 @@ export default function AIChatPage() {
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'ai'; content: string; timestamp?: string }>>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [useStreaming, setUseStreaming] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -28,23 +29,81 @@ export default function AIChatPage() {
 
     const userMessage = { role: 'user' as const, content: input, timestamp: new Date().toISOString() };
     setMessages((prev) => [...prev, userMessage]);
+    const userInput = input;
+    setInput('');
     setLoading(true);
 
-    try {
-      const response = await aiApi.sendMessage(input);
-      const aiMessage = { role: 'ai' as const, content: response.message || 'Something went wrong' };
-      setMessages((prev) => [...prev, aiMessage]);
-      setInput('');
+    // Create an empty AI message that will be updated during streaming
+    const aiMessageIndex = messages.length + 1;
+    setMessages((prev) => [...prev, { role: 'ai', content: '' }]);
 
-      // Refresh tasks if a task was created/modified
-      if (response.success) {
-        // You could trigger a task refresh here if needed
+    if (useStreaming) {
+      // Use streaming
+      let streamedContent = '';
+
+      await aiApi.sendMessageStream(
+        userInput,
+        // onChunk
+        (chunk: string) => {
+          streamedContent += chunk;
+          setMessages((prev) => {
+            const newMessages = [...prev];
+            if (newMessages[aiMessageIndex]) {
+              newMessages[aiMessageIndex] = { ...newMessages[aiMessageIndex], content: streamedContent };
+            }
+            return newMessages;
+          });
+        },
+        // onDone
+        (result: any) => {
+          setLoading(false);
+          // Optionally refresh tasks if something was modified
+          if (result.result) {
+            console.log('Task operation completed:', result);
+          }
+        },
+        // onError
+        (error: string) => {
+          setMessages((prev) => {
+            const newMessages = [...prev];
+            if (newMessages[aiMessageIndex]) {
+              newMessages[aiMessageIndex] = { ...newMessages[aiMessageIndex], content: `Error: ${error}` };
+            }
+            return newMessages;
+          });
+          setLoading(false);
+        }
+      );
+    } else {
+      // Use non-streaming (original method)
+      try {
+        const response = await aiApi.sendMessage(userInput);
+        setMessages((prev) => {
+          const newMessages = [...prev];
+          if (newMessages[aiMessageIndex]) {
+            newMessages[aiMessageIndex] = {
+              role: 'ai',
+              content: response.message || 'Something went wrong'
+            };
+          }
+          return newMessages;
+        });
+
+        if (response.success) {
+          console.log('Task completed:', response);
+        }
+      } catch (error: any) {
+        const errorMessage = error.response?.data?.detail || 'Failed to process message';
+        setMessages((prev) => {
+          const newMessages = [...prev];
+          if (newMessages[aiMessageIndex]) {
+            newMessages[aiMessageIndex] = { role: 'ai', content: `Error: ${errorMessage}` };
+          }
+          return newMessages;
+        });
+      } finally {
+        setLoading(false);
       }
-    } catch (error: any) {
-      const errorMessage = { role: 'ai' as const, content: error.response?.data?.detail || 'Failed to process message' };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -70,6 +129,14 @@ export default function AIChatPage() {
             <Link href="/dashboard" className="text-sm font-medium hover:text-primary">Dashboard</Link>
             <Link href="/tasks" className="text-sm font-medium hover:text-primary">Tasks</Link>
             <Link href="/ai-chat" className="text-sm font-medium hover:text-primary">AI Chat</Link>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setUseStreaming(!useStreaming)}
+              className="mr-2"
+            >
+              {useStreaming ? '🌊 Streaming' : '📝 Standard'}
+            </Button>
             <Button variant="outline" size="sm" onClick={handleLogout}>Logout</Button>
           </nav>
         </div>
@@ -78,7 +145,7 @@ export default function AIChatPage() {
       <main className="container mx-auto px-6 py-8">
         <div className="mb-6">
           <h2 className="text-3xl font-bold mb-2">AI Chat</h2>
-          <p className="text-muted-foreground">Manage tasks using natural language</p>
+          <p className="text-muted-foreground">Manage tasks using natural language {useStreaming && 'with streaming responses'}</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -118,12 +185,19 @@ export default function AIChatPage() {
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-muted'
                         }`}>
-                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                          {msg.content === '' && loading ? (
+                            <div className="flex items-center gap-2">
+                              <Loader2 size={16} className="animate-spin" />
+                              <span className="text-sm">Thinking...</span>
+                            </div>
+                          ) : (
+                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                          )}
                         </div>
                       </div>
                     ))
                   )}
-                  {loading && (
+                  {loading && messages.length > 0 && messages[messages.length - 1].content === '' && (
                     <div className="flex justify-start">
                       <div className="bg-muted rounded-2xl px-4 py-2 flex items-center gap-2">
                         <Loader2 size={16} className="animate-spin" />
@@ -166,6 +240,28 @@ export default function AIChatPage() {
                     {suggestion}
                   </button>
                 ))}
+              </CardContent>
+            </Card>
+
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle>Settings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  variant={useStreaming ? "default" : "outline"}
+                  className="w-full mb-2"
+                  onClick={() => setUseStreaming(true)}
+                >
+                  🌊 Streaming
+                </Button>
+                <Button
+                  variant={!useStreaming ? "default" : "outline"}
+                  className="w-full"
+                  onClick={() => setUseStreaming(false)}
+                >
+                  📝 Standard
+                </Button>
               </CardContent>
             </Card>
           </div>

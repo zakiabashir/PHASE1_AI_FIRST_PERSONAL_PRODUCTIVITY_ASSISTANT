@@ -4,7 +4,9 @@ Reuses existing AI Intent Parser from Phase I
 """
 
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+import json
 
 from src.backend.api.schemas.ai import AIChatRequest, AIChatResponse
 from src.backend.api.schemas.tasks import TaskResponse
@@ -14,6 +16,7 @@ from src.backend.core.repository import TaskRepository
 # Import existing AI components from Phase I
 from src.ai.intent_parser import classify_intent, Intent
 from src.ai.entity_extractor import extract_entities
+from src.ai.client import AIClient
 from src.config.constants import CONFIDENCE_THRESHOLD
 
 
@@ -69,7 +72,7 @@ def _extract_task_id(entities: dict) -> int | None:
     if task_id:
         if isinstance(task_id, int):
             return task_id
-        elif isinstance(task_id, str) and task_id.isdigit():
+        elif isinstance(task_id, str) and task_id_str.isdigit():
             return int(task_id)
 
     return None
@@ -136,6 +139,68 @@ async def ai_chat(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"AI processing error: {str(e)}"
         )
+
+
+@router.post("/chat/stream")
+async def ai_chat_stream(
+    request: AIChatRequest,
+    user_id: UserIdDep,
+    db: DbDep
+):
+    """Process natural language input with streaming response.
+
+    Args:
+        request: AI chat request with message and optional verbose flag
+        user_id: Authenticated user ID
+        db: Database session
+
+    Returns:
+        StreamingResponse with chunks of the response
+    """
+    async def generate_stream():
+        try:
+            # Step 1: Classify intent
+            intent, entities, confidence = classify_intent(
+                request.message,
+                verbose=request.verbose
+            )
+
+            # Step 2: Check confidence threshold
+            if confidence < CONFIDENCE_THRESHOLD:
+                error_msg = f"I'm not sure what you want to do. Confidence: {confidence:.2f}. "
+                error_msg += "Could you please rephrase? Try: 'create task X', 'show tasks', 'complete task 1'"
+                yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
+                return
+
+            # Step 3: Extract and normalize entities
+            extracted = extract_entities({"intent": intent.value, "entities": entities})
+
+            # Step 4: Execute operation using repository
+            repo = TaskRepository(user_id, db)
+            result, message = _execute_intent(intent, extracted, repo)
+
+            # Stream the response word by word
+            words = message.split()
+            for i, word in enumerate(words):
+                chunk = word + " " if i < len(words) - 1 else word
+                yield f"data: {json.dumps({'type': 'token', 'content': chunk})}\n\n"
+
+            # Send final result
+            yield f"data: {json.dumps({'type': 'done', 'intent': intent.value, 'result': result})}\n\n"
+
+        except ValueError as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': f'AI processing error: {str(e)}'})}\n\n"
+
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
 
 
 def _execute_intent(intent: Intent, entities: dict, repo: TaskRepository) -> tuple:

@@ -34,7 +34,7 @@ class AIClient:
         system_prompt: str,
         max_tokens: int = 200
     ) -> dict:
-        """Classify user intent using LLM.
+        """Classify intent using LLM.
 
         Args:
             user_input: User's natural language input
@@ -74,5 +74,52 @@ class AIClient:
                 raise ValueError("AI API request timed out. Please try again or use manual mode.")
             elif "rate" in str(e).lower():
                 raise ValueError("AI API rate limit exceeded. Please wait or use manual mode.")
+            else:
+                raise ValueError(f"AI API error: {e}")
+
+    def stream_response(
+        self,
+        user_input: str,
+        system_prompt: str,
+        max_tokens: int = 500
+    ):
+        """Stream AI response token by token.
+
+        Args:
+            user_input: User's natural language input
+            system_prompt: System prompt for the LLM
+            max_tokens: Maximum tokens in response
+
+        Yields:
+            Text chunks as they're generated
+
+        Raises:
+            ValueError: If API key not set or API call fails
+        """
+        if not self._available:
+            raise ValueError("GROQ_API_KEY environment variable not set")
+
+        try:
+            response = self.client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_input}
+                ],
+                temperature=0.7,  # Slightly higher for more natural responses
+                max_tokens=max_tokens,
+                timeout=30.0,
+                stream=True,  # Enable streaming
+            )
+
+            for chunk in response:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+
+        except Exception as e:
+            if "timeout" in str(e).lower():
+                raise ValueError("AI API request timed out. Please try again.")
+            elif "rate" in str(e).lower():
+                raise ValueError("AI API rate limit exceeded. Please wait.")
             else:
                 raise ValueError(f"AI API error: {e}")
