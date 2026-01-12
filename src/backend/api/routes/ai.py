@@ -232,18 +232,18 @@ async def ai_chat_stream(
 
 @router.get("/history")
 async def get_chat_history(
-    hours: int = 24,
-    limit: int = 100,
     user_id: UserIdDep,
-    db: DbDep
+    db: DbDep,
+    hours: int = 24,
+    limit: int = 100
 ):
     """Get chat history for the user.
 
     Args:
-        hours: Number of hours to look back (default: 24)
-        limit: Maximum number of messages to return (default: 100)
         user_id: Authenticated user ID
         db: Database session
+        hours: Number of hours to look back (default: 24)
+        limit: Maximum number of messages to return (default: 100)
 
     Returns:
         List of chat messages
@@ -265,16 +265,16 @@ async def get_chat_history(
 
 @router.delete("/history")
 async def clear_chat_history(
-    days: int = 30,
     user_id: UserIdDep,
-    db: DbDep
+    db: DbDep,
+    days: int = 30
 ):
     """Clear old chat history for the user.
 
     Args:
-        days: Keep messages newer than this many days (default: 30)
         user_id: Authenticated user ID
         db: Database session
+        days: Keep messages newer than this many days (default: 30)
 
     Returns:
         Number of messages deleted
