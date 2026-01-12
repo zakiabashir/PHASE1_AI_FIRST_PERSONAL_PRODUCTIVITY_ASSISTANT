@@ -105,16 +105,21 @@ async def ai_chat(
         # Save user message to history
         chat_repo.save_message("user", request.message)
 
-        # Step 1: Classify intent using existing AI layer
+        # Get conversation history for context
+        history = chat_repo.get_conversation_history(hours=24, limit=10)
+
+        # Step 1: Classify intent using existing AI layer with context
         intent, entities, confidence = classify_intent(
             request.message,
-            verbose=request.verbose
+            verbose=request.verbose,
+            conversation_history=history
         )
 
         # Step 2: Check confidence threshold
         if confidence < CONFIDENCE_THRESHOLD:
-            error_message = f"I'm not sure what you want to do. Confidence: {confidence:.2f}. " \
-                          f"Could you please rephrase? Try: 'create task X', 'show tasks', 'complete task 1'"
+            error_message = "I'd be happy to help! Could you please rephrase that? " \
+                          "Here are some examples: 'create a task called Review Project', " \
+                          "'show my tasks', 'mark task 1 as complete'."
             chat_repo.save_message("assistant", error_message, intent=intent.value)
             return AIChatResponse(
                 intent=intent.value,
@@ -146,7 +151,7 @@ async def ai_chat(
             detail=str(e)
         )
     except Exception as e:
-        error_msg = f"AI processing error: {str(e)}"
+        error_msg = "Something went wrong on my end. Please try again."
         chat_repo.save_message("assistant", error_msg)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -177,16 +182,20 @@ async def ai_chat_stream(
             # Save user message to history
             chat_repo.save_message("user", request.message)
 
-            # Step 1: Classify intent
+            # Get conversation history for context
+            history = chat_repo.get_conversation_history(hours=24, limit=10)
+
+            # Step 1: Classify intent with context
             intent, entities, confidence = classify_intent(
                 request.message,
-                verbose=request.verbose
+                verbose=request.verbose,
+                conversation_history=history
             )
 
             # Step 2: Check confidence threshold
             if confidence < CONFIDENCE_THRESHOLD:
-                error_msg = f"I'm not sure what you want to do. Confidence: {confidence:.2f}. "
-                error_msg += "Could you please rephrase? Try: 'create task X', 'show tasks', 'complete task 1'"
+                error_msg = "I'd be happy to help! Could you please rephrase that? "
+                error_msg += "Here are some examples: 'create a task called Review Project', 'show my tasks', 'mark task 1 as complete'."
                 chat_repo.save_message("assistant", error_msg, intent=intent.value)
                 yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
                 return
@@ -216,7 +225,7 @@ async def ai_chat_stream(
             chat_repo.save_message("assistant", str(e))
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
         except Exception as e:
-            error_msg = f'AI processing error: {str(e)}'
+            error_msg = "Something went wrong on my end. Please try again."
             chat_repo.save_message("assistant", error_msg)
             yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
 
@@ -302,23 +311,30 @@ def _execute_intent(intent: Intent, entities: dict, repo: TaskRepository) -> tup
             description=entities.get("description"),
             priority=entities.get("priority") or "medium"
         )
-        return _task_to_dict(task), f"Task '{task.title}' has been created (ID: {task.id})."
+        return _task_to_dict(task), f"Great! I've created the task '{task.title}' for you."
 
     elif intent == Intent.READ:
         tasks = repo.list_tasks(
             status=entities.get("status"),
             priority=entities.get("priority")
         )
+        count = len(tasks)
+        if count == 0:
+            message = "You don't have any tasks matching those criteria. Would you like to create one?"
+        elif count == 1:
+            message = "Here's the task I found."
+        else:
+            message = f"Here are your {count} tasks."
         return {
             "tasks": [_task_to_dict(t) for t in tasks],
-            "count": len(tasks)
-        }, f"Found {len(tasks)} task(s)."
+            "count": count
+        }, message
 
     elif intent == Intent.UPDATE:
         # Get task ID from entities
         task_id = _extract_task_id(entities)
         if not task_id:
-            raise ValueError("Please specify which task to update (e.g., 'task 1' or 'the first task')")
+            raise ValueError("Could you please specify which task you'd like to update? For example: 'update task 1' or 'change the first task'.")
 
         task = repo.update_task(
             task_id=task_id,
@@ -327,27 +343,34 @@ def _execute_intent(intent: Intent, entities: dict, repo: TaskRepository) -> tup
             status=entities.get("status"),
             priority=entities.get("priority")
         )
-        return _task_to_dict(task), f"Task '{task.title}' has been updated."
+        return _task_to_dict(task), f"Done! I've updated '{task.title}' for you."
 
     elif intent == Intent.DELETE:
         task_id = _extract_task_id(entities)
         if not task_id:
-            raise ValueError("Please specify which task to delete (e.g., 'task 1' or 'the first task')")
+            raise ValueError("Which task would you like me to remove? Please specify, for example: 'delete task 1'.")
 
         repo.delete_task(task_id=task_id)
-        return {"deleted": task_id}, f"Task {task_id} deleted."
+        return {"deleted": task_id}, "I've removed that task for you."
 
     elif intent == Intent.COMPLETE:
         task_id = _extract_task_id(entities)
         if not task_id:
-            raise ValueError("Please specify which task to complete (e.g., 'task 1' or 'the first task')")
+            raise ValueError("Which task would you like to mark as complete? Please specify, for example: 'complete task 1'.")
 
         task = repo.complete_task(task_id=task_id)
-        return _task_to_dict(task), f"Task '{task.title}' has been marked as complete (ID: {task.id})."
+        return _task_to_dict(task), f"Excellent! '{task.title}' is now marked as complete."
 
     elif intent == Intent.SUMMARIZE:
         summary = repo.get_summary()
-        return summary, f"You have {summary['total_count']} task(s)."
+        total = summary['total_count']
+        pending = summary['pending_count']
+        if total == 0:
+            return summary, "You don't have any tasks yet. Would you like to create one?"
+        elif pending == 0:
+            return summary, "You've completed all your tasks. Great job!"
+        else:
+            return summary, f"You have {pending} task(s) pending out of {total} total."
 
     else:
-        return None, "Unknown command"
+        return None, "I'm not sure how to help with that. Try asking me to create, list, update, or complete a task."
