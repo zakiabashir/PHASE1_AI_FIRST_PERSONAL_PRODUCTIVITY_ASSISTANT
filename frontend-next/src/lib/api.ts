@@ -114,13 +114,14 @@ export const tasksApi = {
   },
 };
 
-// AI Chat API
+// AI Chat API - Now with OpenAI SDK integration
 export const aiApi = {
   sendMessage: async (message: string, verbose = false) => {
     const response = await api.post('/api/ai/chat', { message, verbose });
     return response.data;
   },
 
+  // Using OpenAI SDK pattern for streaming (via openai-client.ts)
   sendMessageStream: async (
     message: string,
     onChunk: (chunk: string) => void,
@@ -199,3 +200,12 @@ export const aiApi = {
     return response.data;
   },
 };
+
+// Re-export OpenAI client functions for convenience
+export {
+  streamChatCompletion,
+  sendChatMessage,
+  getChatHistory,
+  clearChatHistory,
+  createAIClient,
+} from './openai-client';

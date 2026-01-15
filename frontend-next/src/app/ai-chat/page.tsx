@@ -7,7 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { aiApi, tasksApi } from '@/lib/api';
+// OpenAI SDK integration now available via openai-client.ts
+import { streamChatCompletion, sendChatMessage } from '@/lib/openai-client';
 import { Send, Loader2, Trash2, RefreshCw } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 interface ChatMessage {
   id: number;
@@ -186,15 +189,15 @@ export default function AIChatPage() {
       <header className="border-b">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold">🤖 AI Assistant</h1>
-          <nav className="flex items-center gap-6">
+          <nav className="flex items-center gap-4">
             <Link href="/dashboard" className="text-sm font-medium hover:text-primary">Dashboard</Link>
             <Link href="/tasks" className="text-sm font-medium hover:text-primary">Tasks</Link>
             <Link href="/ai-chat" className="text-sm font-medium hover:text-primary">AI Chat</Link>
+            <ThemeToggle />
             <Button
               variant="outline"
               size="sm"
               onClick={() => setUseStreaming(!useStreaming)}
-              className="mr-2"
             >
               {useStreaming ? '🌊 Streaming' : '📝 Standard'}
             </Button>

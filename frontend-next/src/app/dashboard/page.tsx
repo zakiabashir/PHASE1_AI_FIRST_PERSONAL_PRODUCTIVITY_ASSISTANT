@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { tasksApi } from '@/lib/api';
 import { CheckCircle2, Clock, AlertCircle, ListTodo, MessageSquare, Plus } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -54,10 +55,11 @@ export default function DashboardPage() {
       <header className="border-b">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold">🤖 AI Assistant</h1>
-          <nav className="flex items-center gap-6">
+          <nav className="flex items-center gap-4">
             <Link href="/dashboard" className="text-sm font-medium hover:text-primary">Dashboard</Link>
             <Link href="/tasks" className="text-sm font-medium hover:text-primary">Tasks</Link>
             <Link href="/ai-chat" className="text-sm font-medium hover:text-primary">AI Chat</Link>
+            <ThemeToggle />
             <Button variant="outline" size="sm" onClick={handleLogout}>Logout</Button>
           </nav>
         </div>
