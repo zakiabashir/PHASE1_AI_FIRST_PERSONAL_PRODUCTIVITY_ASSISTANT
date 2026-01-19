@@ -95,14 +95,30 @@ export default function AIChatPage() {
 
   const backendHistoryLoaded = useRef(false);
 
-  // Update a session
-  const updateSession = useCallback((id: string, updates: Partial<ChatSession>) => {
+  // Update a session with functional state update to avoid stale closures
+  const updateSession = useCallback((
+    id: string,
+    updates: Partial<ChatSession> | { messages: (prevSessions: ChatSession[]) => ChatMessage[] }
+  ) => {
     setSessions(prev => {
-      const updated = prev.map(s =>
-        s.id === id
-          ? { ...s, ...updates, updatedAt: new Date().toISOString() }
-          : s
-      );
+      const updated = prev.map(s => {
+        if (s.id !== id) return s;
+
+        // Check if messages is a function (functional update)
+        const hasFunctionalMessages = typeof updates === 'object' && 'messages' in updates && typeof updates.messages === 'function';
+
+        if (hasFunctionalMessages) {
+          const { messages: messagesFn, ...otherUpdates } = updates as { messages: (prevSessions: ChatSession[]) => ChatMessage[] };
+          return {
+            ...s,
+            ...otherUpdates,
+            messages: messagesFn(prev),
+            updatedAt: new Date().toISOString()
+          } as ChatSession;
+        }
+
+        return { ...s, ...updates, updatedAt: new Date().toISOString() } as ChatSession;
+      });
       saveSessions(updated);
       return updated;
     });
@@ -261,9 +277,14 @@ export default function AIChatPage() {
     };
 
     // Add empty AI message immediately
+    const messagesWithAI = [...updatedMessages, aiMessage];
     updateSession(currentSessionId, {
-      messages: [...updatedMessages, aiMessage]
+      messages: messagesWithAI
     });
+
+    // Capture base messages reference for streaming callbacks
+    // This is the starting point before any streaming updates
+    const baseMessagesLength = messagesWithAI.length;
 
     let streamedContent = '';
 
@@ -273,14 +294,22 @@ export default function AIChatPage() {
         // onChunk
         (chunk: string) => {
           streamedContent += chunk;
-          const sessionMessages = currentSessionId
-            ? sessions.find(s => s.id === currentSessionId)?.messages || []
-            : [];
+          // Functional update to always get latest state
           updateSession(currentSessionId, {
-            messages: [
-              ...sessionMessages.slice(0, -1),
-              { ...aiMessage, content: streamedContent }
-            ]
+            messages: (prevSessions) => {
+              const currentSession = prevSessions.find(s => s.id === currentSessionId);
+              const currentMsgs = currentSession?.messages || [];
+              // Ensure we have the expected structure
+              if (currentMsgs.length < baseMessagesLength) {
+                // Fallback: state was reset, use captured reference
+                return [...messagesWithAI.slice(0, -1), { ...aiMessage, content: streamedContent }];
+              }
+              // Normal case: update last message with streamed content
+              return [
+                ...currentMsgs.slice(0, -1),
+                { ...aiMessage, content: streamedContent }
+              ];
+            }
           });
         },
         // onDone
@@ -290,26 +319,34 @@ export default function AIChatPage() {
         // onError
         (error: string) => {
           updateSession(currentSessionId, {
-            messages: [
-              ...(currentSessionId
-                ? sessions.find(s => s.id === currentSessionId)?.messages || []
-                : []
-              ).slice(0, -1),
-              { ...aiMessage, content: `Error: ${error}` }
-            ]
+            messages: (prevSessions) => {
+              const currentSession = prevSessions.find(s => s.id === currentSessionId);
+              const currentMsgs = currentSession?.messages || [];
+              if (currentMsgs.length < baseMessagesLength) {
+                return [...messagesWithAI.slice(0, -1), { ...aiMessage, content: `Error: ${error}` }];
+              }
+              return [
+                ...currentMsgs.slice(0, -1),
+                { ...aiMessage, content: `Error: ${error}` }
+              ];
+            }
           });
           setLoading(false);
         }
       );
     } catch (error: any) {
       updateSession(currentSessionId, {
-        messages: [
-          ...(currentSessionId
-            ? sessions.find(s => s.id === currentSessionId)?.messages || []
-            : []
-          ).slice(0, -1),
-          { ...aiMessage, content: `Error: ${error.message || 'Failed to send message'}` }
-        ]
+        messages: (prevSessions) => {
+          const currentSession = prevSessions.find(s => s.id === currentSessionId);
+          const currentMsgs = currentSession?.messages || [];
+          if (currentMsgs.length < baseMessagesLength) {
+            return [...messagesWithAI.slice(0, -1), { ...aiMessage, content: `Error: ${error.message || 'Failed to send message'}` }];
+          }
+          return [
+            ...currentMsgs.slice(0, -1),
+            { ...aiMessage, content: `Error: ${error.message || 'Failed to send message'}` }
+          ];
+        }
       });
       setLoading(false);
     }
