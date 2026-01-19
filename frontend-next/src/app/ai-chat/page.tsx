@@ -93,6 +93,21 @@ export default function AIChatPage() {
     ? sessions.find(s => s.id === currentSessionId)?.messages || []
     : [];
 
+  const backendHistoryLoaded = useRef(false);
+
+  // Update a session
+  const updateSession = useCallback((id: string, updates: Partial<ChatSession>) => {
+    setSessions(prev => {
+      const updated = prev.map(s =>
+        s.id === id
+          ? { ...s, ...updates, updatedAt: new Date().toISOString() }
+          : s
+      );
+      saveSessions(updated);
+      return updated;
+    });
+  }, []);
+
   // Initialize on mount
   useEffect(() => {
     if (initialized.current) return;
@@ -109,12 +124,32 @@ export default function AIChatPage() {
     const savedCurrentId = localStorage.getItem(CURRENT_SESSION_KEY);
 
     if (savedSessions.length === 0) {
-      // Create first session
+      // Create first session and load backend history into it
       const newSession = createNewSession();
       const updated = [newSession];
       saveSessions(updated);
       setSessions(updated);
       setCurrentSessionId(newSession.id);
+
+      // Load backend history into the first session only
+      const loadBackendHistory = async () => {
+        try {
+          const history = await aiApi.getHistory(50);
+          if (history.length > 0) {
+            updateSession(newSession.id, {
+              messages: history,
+              title: history[0].role === 'user'
+                ? generateChatTitle(history[0].content)
+                : 'Chat ' + new Date().toLocaleDateString(),
+            });
+            backendHistoryLoaded.current = true;
+          }
+        } catch (error) {
+          console.error('Failed to load backend history:', error);
+        }
+      };
+
+      loadBackendHistory();
     } else {
       setSessions(savedSessions);
       // Restore current session or use the most recent
@@ -122,8 +157,9 @@ export default function AIChatPage() {
         ? savedCurrentId
         : savedSessions[0].id;
       setCurrentSessionId(sessionId);
+      backendHistoryLoaded.current = true;
     }
-  }, [router]);
+  }, [router, updateSession]);
 
   // Save current session ID when it changes
   useEffect(() => {
@@ -131,42 +167,6 @@ export default function AIChatPage() {
       localStorage.setItem(CURRENT_SESSION_KEY, currentSessionId);
     }
   }, [currentSessionId]);
-
-  // Load backend history into current session if empty
-  useEffect(() => {
-    if (!currentSessionId || currentMessages.length > 0) return;
-
-    const loadBackendHistory = async () => {
-      try {
-        const history = await aiApi.getHistory(50);
-        if (history.length > 0) {
-          updateSession(currentSessionId, {
-            messages: history,
-            title: history.length > 0 && history[0].role === 'user'
-              ? generateChatTitle(history[0].content)
-              : 'Chat ' + new Date().toLocaleDateString(),
-          });
-        }
-      } catch (error) {
-        console.error('Failed to load backend history:', error);
-      }
-    };
-
-    loadBackendHistory();
-  }, [currentSessionId]);
-
-  // Update a session
-  const updateSession = useCallback((id: string, updates: Partial<ChatSession>) => {
-    setSessions(prev => {
-      const updated = prev.map(s =>
-        s.id === id
-          ? { ...s, ...updates, updatedAt: new Date().toISOString() }
-          : s
-      );
-      saveSessions(updated);
-      return updated;
-    });
-  }, []);
 
   // Create new chat
   const handleNewChat = useCallback(() => {
