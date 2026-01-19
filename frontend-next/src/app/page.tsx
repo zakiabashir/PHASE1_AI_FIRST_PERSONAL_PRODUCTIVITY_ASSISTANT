@@ -13,7 +13,7 @@ export default function Home() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🤖</span>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 dark:from-primary dark:to-blue-400 bg-clip-text text-transparent">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 dark:from-blue-400 dark:to-cyan-400 bg-clip-text text-transparent">
               AI Productivity Assistant
             </h1>
           </div>
@@ -44,7 +44,7 @@ export default function Home() {
           </div>
           <h2 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
             Manage Tasks with{' '}
-            <span className="bg-gradient-to-r from-primary via-blue-600 to-purple-600 dark:from-primary dark:via-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 dark:from-blue-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
               AI Power
             </span>
           </h2>
