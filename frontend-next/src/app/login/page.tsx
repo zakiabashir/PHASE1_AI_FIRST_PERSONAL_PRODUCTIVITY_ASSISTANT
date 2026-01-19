@@ -42,8 +42,16 @@ export default function LoginPage() {
         <ThemeToggle />
       </div>
 
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
+      <Card className="w-full max-w-md border-border/50 shadow-xl">
+        <CardHeader className="space-y-3 pb-6">
+          <div className="flex justify-center mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-3xl">🤖</span>
+              <span className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 dark:from-primary dark:to-blue-400 bg-clip-text text-transparent">
+                AI Assistant
+              </span>
+            </div>
+          </div>
           <CardTitle className="text-2xl font-bold text-center">Welcome back</CardTitle>
           <CardDescription className="text-center">
             Sign in to your AI Productivity Assistant account

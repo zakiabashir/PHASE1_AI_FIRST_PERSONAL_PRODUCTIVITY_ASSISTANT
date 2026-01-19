@@ -153,15 +153,28 @@ export default function TasksPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b">
+      <header className="border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">🤖 AI Assistant</h1>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🤖</span>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 dark:from-primary dark:to-blue-400 bg-clip-text text-transparent">
+              AI Assistant
+            </h1>
+          </div>
           <nav className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-sm font-medium hover:text-primary">Dashboard</Link>
-            <Link href="/tasks" className="text-sm font-medium hover:text-primary">Tasks</Link>
-            <Link href="/ai-chat" className="text-sm font-medium hover:text-primary">AI Chat</Link>
+            <Link href="/dashboard" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+              Dashboard
+            </Link>
+            <Link href="/tasks" className="text-sm font-medium text-primary hover:text-primary transition-colors">
+              Tasks
+            </Link>
+            <Link href="/ai-chat" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+              AI Chat
+            </Link>
             <ThemeToggle />
-            <Button variant="outline" size="sm" onClick={handleLogout}>Logout</Button>
+            <Button variant="outline" size="sm" onClick={handleLogout} className="hover:bg-destructive hover:text-destructive-foreground transition-colors">
+              Logout
+            </Button>
           </nav>
         </div>
       </header>

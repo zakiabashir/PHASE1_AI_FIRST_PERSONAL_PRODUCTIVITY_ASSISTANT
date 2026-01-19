@@ -52,15 +52,28 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b">
+      <header className="border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">🤖 AI Assistant</h1>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🤖</span>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-blue-600 dark:from-primary dark:to-blue-400 bg-clip-text text-transparent">
+              AI Assistant
+            </h1>
+          </div>
           <nav className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-sm font-medium hover:text-primary">Dashboard</Link>
-            <Link href="/tasks" className="text-sm font-medium hover:text-primary">Tasks</Link>
-            <Link href="/ai-chat" className="text-sm font-medium hover:text-primary">AI Chat</Link>
+            <Link href="/dashboard" className="text-sm font-medium text-primary hover:text-primary transition-colors">
+              Dashboard
+            </Link>
+            <Link href="/tasks" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+              Tasks
+            </Link>
+            <Link href="/ai-chat" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+              AI Chat
+            </Link>
             <ThemeToggle />
-            <Button variant="outline" size="sm" onClick={handleLogout}>Logout</Button>
+            <Button variant="outline" size="sm" onClick={handleLogout} className="hover:bg-destructive hover:text-destructive-foreground transition-colors">
+              Logout
+            </Button>
           </nav>
         </div>
       </header>
@@ -71,19 +84,19 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Overview of your tasks and productivity</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-8">
           {stats.map((stat) => {
             const Icon = stat.icon;
             return (
-              <Card key={stat.label}>
+              <Card key={stat.label} className="group border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-1">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-lg ${stat.bg}`}>
+                    <div className={`p-3 rounded-xl ${stat.bg} group-hover:scale-110 transition-transform duration-300`}>
                       <Icon className={stat.color} size={24} />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold">{stat.value}</p>
-                      <p className="text-sm text-muted-foreground">{stat.label}</p>
+                      <p className="text-3xl font-bold">{stat.value}</p>
+                      <p className="text-sm text-muted-foreground font-medium">{stat.label}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -111,25 +124,25 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-border/50">
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Link href="/tasks">
-                <Button variant="outline" className="w-full justify-start">
+              <Link href="/tasks" className="block">
+                <Button variant="outline" className="w-full justify-start hover:bg-primary/10 hover:text-primary hover:border-primary/50 transition-all">
                   <Plus size={18} className="mr-2" />
                   Create New Task
                 </Button>
               </Link>
-              <Link href="/tasks">
-                <Button variant="outline" className="w-full justify-start">
+              <Link href="/tasks" className="block">
+                <Button variant="outline" className="w-full justify-start hover:bg-primary/10 hover:text-primary hover:border-primary/50 transition-all">
                   <ListTodo size={18} className="mr-2" />
                   View All Tasks
                 </Button>
               </Link>
-              <Link href="/ai-chat">
-                <Button variant="outline" className="w-full justify-start">
+              <Link href="/ai-chat" className="block">
+                <Button variant="outline" className="w-full justify-start hover:bg-primary/10 hover:text-primary hover:border-primary/50 transition-all">
                   <MessageSquare size={18} className="mr-2" />
                   Open AI Chat
                 </Button>
