@@ -1,0 +1,66 @@
+# =============================================================================
+# Docker Compose configuration for AI Productivity Assistant
+# Orchestrates Frontend (React + Nginx) and Backend (FastAPI) services
+# =============================================================================
+
+services:
+  # -----------------------------------------------------------------------------
+  # Backend Service: FastAPI Application
+  # -----------------------------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-productivity-backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Groq API Key
+      - GROQ_API_KEY=${GROQ_API_KEY}
+
+      # Database Configuration (using external Neon PostgreSQL)
+      - DATABASE_URL=${DATABASE_URL}
+
+      # JWT Configuration
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+
+      # CORS Configuration (update with frontend URL in production)
+      - CORS_ORIGINS=["http://localhost:80", "http://localhost:3000", "http://localhost:5173"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - ai-productivity-network
+
+  # -----------------------------------------------------------------------------
+  # Frontend Service: React + Nginx
+  # -----------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=/  # Use relative path for nginx proxy
+    container_name: ai-productivity-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/frontend/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - ai-productivity-network
+
+networks:
+  ai-productivity-network:
+    driver: bridge

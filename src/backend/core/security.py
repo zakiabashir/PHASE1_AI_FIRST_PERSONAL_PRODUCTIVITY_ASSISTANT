@@ -1,18 +1,35 @@
 """
-JWT authentication and password hashing utilities
+JWT authentication and password hashing utilities (Phase 2)
+Uses passlib[bcrypt] as required by Phase 2 constitution
 """
 
 import os
-import bcrypt
+import hashlib
 from datetime import datetime, timedelta
 from typing import Optional
 
 from jose import JWTError, jwt
+from passlib.context import CryptContext
+
+# Password hashing context with bcrypt
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT configuration
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production-min-32-chars")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))  # 7 days default
+
+
+def _pre_hash_password(password: str) -> str:
+    """Pre-hash password with SHA256 to avoid bcrypt's 72-byte limit.
+
+    Args:
+        password: Plain text password
+
+    Returns:
+        SHA256 hash as hex string (always 64 chars, well within bcrypt's limit)
+    """
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -25,7 +42,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         True if password matches, False otherwise
     """
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    pre_hashed = _pre_hash_password(plain_password)
+    return pwd_context.verify(pre_hashed, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
@@ -37,8 +55,8 @@ def get_password_hash(password: str) -> str:
     Returns:
         Hashed password
     """
-    salt = bcrypt.gensalt()
-    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+    pre_hashed = _pre_hash_password(password)
+    return pwd_context.hash(pre_hashed)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:

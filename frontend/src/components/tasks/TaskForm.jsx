@@ -5,6 +5,7 @@ import { useTasks } from '../../contexts/TaskContext';
 /**
  * Task Form Component
  * Form to create a new task
+ * Fully responsive with dark mode support
  */
 
 const TaskForm = onClose => {
@@ -61,13 +62,13 @@ const TaskForm = onClose => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {errors.submit && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded transition-colors duration-200">
           {errors.submit}
         </div>
       )}
 
       <div>
-        <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+        <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Title <span className="text-red-500">*</span>
         </label>
         <input
@@ -76,16 +77,18 @@ const TaskForm = onClose => {
           type="text"
           value={formData.title}
           onChange={handleChange}
-          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-            errors.title ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200 ${
+            errors.title
+              ? 'border-red-500 dark:border-red-500 focus:ring-red-500 dark:focus:ring-red-400'
+              : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400'
           }`}
           placeholder="What do you need to do?"
         />
-        {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title}</p>}
+        {errors.title && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.title}</p>}
       </div>
 
       <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+        <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Description
         </label>
         <textarea
@@ -94,18 +97,18 @@ const TaskForm = onClose => {
           value={formData.description}
           onChange={handleChange}
           rows="3"
-          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200 resize-none ${
             errors.description
-              ? 'border-red-500 focus:ring-red-500'
-              : 'border-gray-300 focus:ring-blue-500'
+              ? 'border-red-500 dark:border-red-500 focus:ring-red-500 dark:focus:ring-red-400'
+              : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400'
           }`}
           placeholder="Add more details (optional)"
         />
-        {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
+        {errors.description && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.description}</p>}
       </div>
 
       <div>
-        <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-2">
+        <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Priority
         </label>
         <select
@@ -113,7 +116,7 @@ const TaskForm = onClose => {
           name="priority"
           value={formData.priority}
           onChange={handleChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
         >
           <option value="low">Low</option>
           <option value="medium">Medium</option>
