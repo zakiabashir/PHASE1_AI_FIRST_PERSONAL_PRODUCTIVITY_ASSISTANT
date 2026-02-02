@@ -2,11 +2,10 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "env": {
+    "VITE_API_BASE_URL": "https://nshfeys0-ai-productivity-assistant.hf.space"
+  },
   "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://nshfeys0-ai-productivity-assistant.hf.space/api/:path*"
-    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
