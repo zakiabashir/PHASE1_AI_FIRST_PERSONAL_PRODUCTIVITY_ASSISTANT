@@ -1,269 +1,441 @@
-# AI-First Personal Productivity Assistant (CLI MVP)
+# AI-First Personal Productivity Assistant
 
-An AI-first personal productivity assistant with a Command Line Interface (CLI). The system supports dual-mode interaction: manual CLI commands and AI-powered natural language processing.
+An AI-first personal productivity assistant that has evolved through multiple development phases:
+- **Phase I**: Console CLI MVP with in-memory storage
+- **Phase II**: Full-stack web application with database persistence
+- **Phase III**: Enhanced AI chat integration
+- **Phase IV**: Kubernetes deployment with Minikube
 
-## Features
+---
 
-- **Manual Mode**: Explicit CLI commands for deterministic task management
-- **AI Mode**: Natural language interaction powered by LLM intent classification
-- **Task CRUD Operations**: Create, Read, Update, Delete, and Complete tasks
-- **Task Summarization**: Get a quick overview of your workload
-- **Mode Switching**: Seamlessly toggle between manual and AI modes
+## Quick Start - Vercel Deployment (Easiest)
 
-## Setup Instructions
+**Deploy the frontend to Vercel in 3 steps:**
 
-1. **Install Python 3.13+**
-   ```bash
-   python3 --version  # Should be 3.13 or higher
-   ```
+1. Go to https://vercel.com/new
+2. Import `zakiabashir/PHASE1_AI_FIRST_PERSONAL_PRODUCTIVITY_ASSISTANT`
+3. Set **Root Directory**: `frontend`
+   Set **Environment Variable**: `VITE_API_BASE_URL` = `https://nshfeys0-ai-productivity-assistant.hf.space`
 
-2. **Install Dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+✨ Your app will be live at: `https://ai-productivity-frontend.vercel.app`
 
-3. **Set AI API Key** (required for AI mode)
-   ```bash
-   export AI_API_KEY=your_openai_api_key_here
-   ```
+**Backend is already deployed:** https://nshfeys0-ai-productivity-assistant.hf.space
 
-4. **Run the Application**
-   ```bash
-   python main.py
-   ```
+---
 
-## Usage Examples
+## Quick Start - Kubernetes Deployment (Recommended)
 
-### Manual Mode Commands
+The fastest way to run the complete application with AI chat:
+
+```bash
+# 1. Install prerequisites: Docker, Minikube, kubectl, Helm
+# 2. Deploy to Kubernetes
+./scripts/deploy.sh
+
+# 3. Access the application
+minikube service ai-assistant-frontend
+```
+
+**Features:**
+- 🎯 Modern React web interface
+- 🤖 AI-powered natural language task management
+- 💾 Persistent data storage (Neon PostgreSQL)
+- 🔐 User authentication with JWT
+- 📊 Real-time chat interface
+- 🚀 Production-ready Kubernetes deployment
+
+---
+
+## Table of Contents
+
+- [Phase IV - Kubernetes Deployment](#phase-iv---kubernetes-deployment)
+- [Phase II/III - Web Application](#phase-iiiii---web-application)
+- [Phase I - CLI Application](#phase-i---cli-application)
+- [Architecture](#architecture)
+- [Development](#development)
+- [Documentation](#documentation)
+
+---
+
+## Phase IV - Kubernetes Deployment
+
+### Prerequisites
+
+| Tool | Version | Installation |
+|------|---------|--------------|
+| Docker | 20.10+ | [docker.com](https://docs.docker.com/get-docker/) |
+| Minikube | 1.28+ | [minikube.sigs.k8s.io](https://minikube.sigs.k8s.io/docs/start/) |
+| kubectl | 1.28+ | [kubernetes.io](https://kubernetes.io/docs/tasks/tools/) |
+| Helm | 3.x | [helm.sh](https://helm.sh/docs/intro/install/) |
+
+### Quick Deploy
+
+```bash
+# Automated deployment (interactive)
+./scripts/deploy.sh
+
+# Or manual deployment
+minikube start --cpus=4 --memory=8192
+eval $(minikube docker-env)
+docker build -t ai-productivity-frontend:latest ./frontend
+docker build -t ai-productivity-backend:latest .
+kubectl create secret generic ai-assistant-secrets \
+  --from-literal=openai-api-key="$OPENAI_API_KEY" \
+  --from-literal=database-url="$DATABASE_URL" \
+  --from-literal=jwt-secret="$JWT_SECRET"
+helm install ai-assistant ./helm/ai-productivity-assistant \
+  --values ./helm/ai-productivity-assistant/values-dev.yaml
+```
+
+### Access the Application
+
+```bash
+# Open in browser (automatic)
+minikube service ai-assistant-frontend
+
+# Or port forward
+kubectl port-forward svc/ai-assistant-frontend 8080:80
+# Open: http://localhost:8080
+```
+
+### Available Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `./scripts/deploy.sh` | Full deployment automation |
+| `./scripts/build-images.sh` | Build Docker images |
+| `./scripts/create-secrets.sh` | Create Kubernetes secrets |
+| `./scripts/verify.sh` | Verify deployment |
+| `./scripts/cleanup.sh` | Remove deployment |
+| `./scripts/test-scalability.sh` | Test horizontal scaling |
+
+### Deployment Verification
+
+```bash
+# Check all pods are running
+kubectl get pods -l app.kubernetes.io/name=ai-productivity-assistant
+
+# Run full verification
+./scripts/verify.sh
+```
+
+### Documentation
+
+- **[Kubernetes Deployment Guide](docs/KUBERNETES_DEPLOYMENT.md)** - Complete deployment documentation
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[Scripts README](scripts/README.md)** - Script usage documentation
+
+### Required Environment Variables
+
+```bash
+# OpenAI API Key (required for AI chat)
+export OPENAI_API_KEY="sk-..."
+
+# Neon PostgreSQL Database URL
+export DATABASE_URL="postgresql://user:pass@host:5432/dbname"
+
+# JWT Secret (auto-generated if not set)
+export JWT_SECRET="your-random-secret"
+```
+
+### Cleanup
+
+```bash
+# Remove deployment only
+./scripts/cleanup.sh
+
+# Remove everything including Minikube
+./scripts/cleanup.sh --purge -y
+```
+
+---
+
+## Phase II/III - Web Application
+
+### Prerequisites
+
+- Python 3.13+
+- Node.js 20+ and npm
+- PostgreSQL database (or Neon)
+- OpenAI API key
+
+### Setup
+
+```bash
+# 1. Install Python dependencies
+pip install -r requirements.txt
+
+# 2. Install frontend dependencies
+cd frontend
+npm install
+cd ..
+
+# 3. Set environment variables
+cp .env.example .env
+# Edit .env with your credentials
+
+# 4. Run database migrations
+alembic upgrade head
+
+# 5. Start backend (FastAPI)
+uvicorn src.backend.main:app --reload --port 8000
+
+# 6. Start frontend (Vite dev server) - in separate terminal
+cd frontend
+npm run dev
+```
+
+### Access
+
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000
+- API Documentation: http://localhost:8000/docs
+
+### Web Application Features
+
+| Feature | Description |
+|---------|-------------|
+| User Authentication | JWT-based login/register |
+| Task Management | Full CRUD operations via web UI |
+| AI Chat | Natural language task creation |
+| Chat History | Persisted conversation history |
+| Multi-User Support | Isolated user data |
+| Task Filtering | Filter by status and priority |
+
+---
+
+## Phase I - CLI Application
+
+### Prerequisites
+
+- Python 3.13+
+- OpenAI API key (for AI mode)
+
+### Setup
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Set API key
+export AI_API_KEY=your_openai_api_key_here
+
+# Run CLI
+python main.py
+```
+
+### CLI Commands
 
 ```bash
 # Create a task
 python main.py create-task "Study AI" --priority high
 
-# Create a task with description
-python main.py create-task "Build CLI app" --description "Implement CRUD functions" --priority medium
-
 # List all tasks
 python main.py list-tasks
 
 # Update a task
-python main.py update-task task-1 --title "Study AI tonight" --priority high
+python main.py update-task task-1 --title "Study AI tonight"
 
-# Mark a task as complete
+# Mark as complete
 python main.py complete-task task-1
 
 # Delete a task
 python main.py delete-task task-1
 
-# Show task summary
+# Show summary
 python main.py summarize
 ```
 
 ### Interactive Mode
 
-Start the interactive loop:
 ```bash
 python main.py
-```
 
-Once in interactive mode, you can:
-
-**Switch modes:**
-```
-(ai-mode) $ --manual
-Switched to Manual mode
-(manual-mode) $
-```
-
-**Manual mode commands:**
-```
+# Manual mode
 (manual-mode) $ create-task "Test task"
-Task 'Test task' has been created (ID: task-1).
-
 (manual-mode) $ list-tasks
-ID      Title      Status   Priority
-----------------------------------------
-task-1  Test task  pending  medium
-```
 
-**AI mode (requires AI_API_KEY):**
-```
+# AI mode
 (ai-mode) $ add a task to study python
-Task 'study python' has been created (ID: task-1).
-
 (ai-mode) $ show me my tasks
-ID      Title         Status   Priority
-------------------------------------------
-task-1  study python pending  medium
-
-(ai-mode) $ mark task 1 as complete
-Task 'study python' has been marked as complete (ID: task-1).
-
-(ai-mode) $ summarize
-Task Summary:
-  Total: 1
-  Pending: 0
-  Complete: 1
 ```
 
-### Verbose Mode
+### CLI Features
 
-Enable verbose output to see AI processing details:
-```bash
-python main.py --verbose
-```
+| Mode | Description |
+|------|-------------|
+| Manual | Deterministic CLI commands |
+| AI | Natural language interaction |
+| Verbose | Show AI processing details |
 
-In verbose mode, AI interactions show:
-- Parsed intent
-- Extracted entities
-- Confidence score
-- Function being called
+**Note**: Phase I uses in-memory storage only. Data is lost on restart.
+
+---
 
 ## Architecture
 
-The application follows a four-layer architecture:
+### Full Stack Architecture
 
 ```
-User Input
-   ├─ Manual CLI Commands ─────┐
-   │                           │
-   └─ AI Natural Language ─────┤
-                               │
-                       ┌───────▼────────┐
-                       │ Action Resolver │
-                       └───────┬────────┘
-                               │
-                       ┌───────▼────────┐
-                       │  CRUD Functions │
-                       └───────┬────────┘
-                               │
-                       ┌───────▼────────┐
-                       │ In-Memory Store │
-                       └────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                         Kubernetes Cluster                        │
+│                                                                   │
+│  ┌──────────────────────┐         ┌──────────────────────┐      │
+│  │  Frontend Pods       │         │  Backend Pods        │      │
+│  │  (Nginx + React)     │◄────────┤ (FastAPI + Python)   │      │
+│  │  Port: 80            │         │  Port: 8000           │      │
+│  └──────────────────────┘         └──────────────────────┘      │
+│                                          │                       │
+│                                          ▼                       │
+│                            ┌─────────────────────────────┐        │
+│                            │  Neon PostgreSQL            │        │
+│                            │  (Cloud-hosted database)     │        │
+│                            └─────────────────────────────┘        │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### Key Design Principles
+### Component Overview
 
-1. **Explicit CRUD Functions**: AI layer ONLY calls CRUD functions - never generates code
-2. **Clear Separation**: CLI, AI, Resolver, and CRUD layers are independent
-3. **In-Memory Storage**: All data is stored in memory (lost on restart)
-4. **Feature Parity**: Both modes support identical operations
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| Frontend | React + Vite + Tailwind | Web UI |
+| Backend | FastAPI + Python 3.13 | REST API |
+| Database | PostgreSQL (Neon) | Persistent storage |
+| AI | OpenAI API | Natural language processing |
+| Container | Docker + Nginx | Containerization |
+| Orchestration | Kubernetes + Helm | Deployment |
 
-## Project Structure
-
-```
-src/
-├── cli/                    # CLI Layer
-│   ├── parser.py          # argparse setup
-│   ├── formatter.py       # output formatting
-│   └── main.py            # CLI entry point
-├── ai/                     # AI Intent Layer
-│   ├── client.py          # LLM API wrapper
-│   ├── intent_parser.py   # intent classification
-│   ├── entity_extractor.py # parameter extraction
-│   ├── prompts.py         # LLM system prompts
-│   └── main.py            # AI mode entry point
-├── resolver/               # Action Resolver
-│   └── dispatcher.py      # intent → CRUD router
-├── core/                   # CRUD Core
-│   ├── task_crud.py       # CRUD functions
-│   └── summarize.py       # summarization
-├── storage/                # Storage Layer
-│   ├── memory_store.py    # in-memory store
-│   └── models.py          # Task model
-└── config/                 # Configuration
-    ├── settings.py        # environment variables
-    └── constants.py       # default values
-
-tests/unit/                 # Unit tests
-├── test_task_crud.py
-└── test_summarize.py
-
-main.py                     # Application entry point
-requirements.txt           # ONE dependency: openai>=1.0.0
-README.md                  # This file
-```
-
-## Constitution Compliance
-
-This project adheres to the following principles:
-
-- **Python 3.13+**: Uses modern Python with type hints
-- **Explicit CRUD Functions**: AI orchestrates, CRUD functions execute
-- **Dual Mode Interaction**: Manual and AI modes with feature parity
-- **In-Memory Storage**: Phase I uses only in-memory storage (no files, no databases)
-- **Clear Separation**: Four-layer architecture with strict boundaries
-- **Minimal Dependencies**: Only openai>=1.0.0 beyond Python standard library
-
-## Testing
-
-Run unit tests:
-```bash
-python3 -m unittest tests.unit.test_task_crud -v
-python3 -m unittest tests.unit.test_summarize -v
-```
-
-Run all tests:
-```bash
-python3 -m unittest discover tests -v
-```
-
-## Troubleshooting
-
-### "AI_API_KEY environment variable not set"
-
-Set your OpenAI API key:
-```bash
-export AI_API_KEY=your_api_key_here
-```
-
-### "AI client not available"
-
-Ensure:
-1. OpenAI package is installed: `pip install openai`
-2. AI_API_KEY environment variable is set
-3. Your API key is valid
-
-### "Task 'task-X' not found"
-
-The task doesn't exist or was deleted. Remember: **data is not persisted** between runs.
-
-### Commands show "No tasks found"
-
-Each CLI invocation creates a new process with fresh memory. To test multiple operations:
-
-```bash
-python3 -c "
-from src.core.task_crud import create_task, list_tasks
-create_task('Test task')
-print(list_tasks())
-"
-```
+---
 
 ## Development
 
+### Project Structure
+
+```
+├── frontend/                   # React web application
+│   ├── src/
+│   ├── Dockerfile
+│   └── package.json
+├── src/
+│   ├── backend/               # FastAPI application
+│   │   ├── api/              # API routes
+│   │   ├── core/             # Database & security
+│   │   ├── models/           # Data models
+│   │   └── main.py           # Application entry
+│   ├── ai/                   # AI intent parsing
+│   ├── cli/                  # CLI interface (Phase I)
+│   ├── config/               # Configuration
+│   ├── core/                 # CRUD functions
+│   ├── resolver/             # Action resolver
+│   └── storage/              # Storage layer
+├── helm/                     # Kubernetes Helm chart
+│   └── ai-productivity-assistant/
+├── scripts/                  # Deployment automation
+├── docs/                     # Documentation
+├── alembic/                  # Database migrations
+├── requirements.txt          # Python dependencies
+└── main.py                   # CLI entry point
+```
+
 ### Adding New Features
 
-1. **New CRUD Operation**: Add function to `src/core/task_crud.py`
-2. **New Intent**: Add to `Intent` enum in `src/ai/intent_parser.py`
-3. **New Command**: Add subparser in `src/cli/parser.py`
-4. **Update Resolver**: Add routing in `src/resolver/dispatcher.py`
+1. **Backend API**: Add route in `src/backend/api/`
+2. **Frontend**: Add component in `frontend/src/`
+3. **Database**: Create migration in `alembic/versions/`
+4. **AI Intent**: Update parser in `src/ai/intent_parser.py`
 
-### Testing Strategy
+### Testing
 
-- Unit tests for all CRUD functions (using `unittest`)
-- Manual testing for AI mode (LLM calls are slow/expensive)
-- Test both modes for feature parity
+```bash
+# Backend tests
+pytest tests/
 
-## Future Phases
+# Frontend tests
+cd frontend && npm test
 
-- **Phase II**: Web application with persistence
-- **Phase III**: Chatbot integration (Discord, Slack, Telegram)
+# Integration tests
+./scripts/verify.sh
+```
+
+---
+
+## Documentation
+
+| Document | Path | Description |
+|----------|------|-------------|
+| Kubernetes Deployment | `docs/KUBERNETES_DEPLOYMENT.md` | Minikube deployment guide |
+| Troubleshooting | `docs/TROUBLESHOOTING.md` | Common issues and solutions |
+| Scripts | `scripts/README.md` | Automation scripts |
+| Phase 1 Constitution | `specs/001-ai-productivity-assistant/constitution.md` | Phase I rules |
+| Phase 4 Constitution | `specs/001-ai-productivity-assistant/phase4-constitution.md` | Phase IV rules |
+| Phase 4 Spec | `specs/001-ai-productivity-assistant/phase4-spec.md` | Phase IV requirements |
+| Phase 4 Plan | `specs/001-ai-productivity-assistant/phase4-plan.md` | Phase IV architecture |
+| Phase 4 Tasks | `specs/001-ai-productivity-assistant/phase4-tasks.md` | Phase IV implementation |
+| ADR-001 | `history/adr/001-containerization-strategy.md` | Docker strategy |
+| ADR-002 | `history/adr/002-service-networking.md` | Kubernetes networking |
+
+---
+
+## Quick Reference
+
+### Kubernetes Deployment
+
+```bash
+# Deploy
+./scripts/deploy.sh
+
+# Verify
+./scripts/verify.sh
+
+# Access
+minikube service ai-assistant-frontend
+
+# Cleanup
+./scripts/cleanup.sh
+```
+
+### Web Application (Local)
+
+```bash
+# Backend
+uvicorn src.backend.main:app --reload
+
+# Frontend
+cd frontend && npm run dev
+```
+
+### CLI Application
+
+```bash
+# Run
+python main.py
+
+# Create task
+python main.py create-task "My task"
+```
+
+---
+
+## Support
+
+- **Kubernetes Issues**: See [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
+- **Deployment Issues**: Check `./scripts/verify.sh` output
+- **Application Issues**: Check pod logs with `kubectl logs <pod-name>`
+
+---
 
 ## License
 
 This is a hackathon project for demonstration purposes.
 
+---
+
 ## Acknowledgments
 
 Built with Spec-Driven Development (SDD) methodology using SpecKit Plus templates.
+
+**Phases Completed**:
+- ✅ Phase I: CLI MVP with in-memory storage
+- ✅ Phase II: Full-stack web application
+- ✅ Phase III: Enhanced AI chat integration
+- ✅ Phase IV: Kubernetes deployment with Minikube
