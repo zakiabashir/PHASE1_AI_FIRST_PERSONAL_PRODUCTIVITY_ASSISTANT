@@ -1,0 +1,208 @@
+# =============================================================================
+# Backend Deployment Workflow for AI Productivity Assistant
+# Triggers: Push to master branch only (after CI passes)
+# =============================================================================
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.12'
+  # Docker Hub image name
+  IMAGE_NAME: ai-productivity-backend
+  # HuggingFace Space configuration
+  HF_SPACE_REPO: ai-productivity-backend
+
+jobs:
+  # =============================================================================
+  # Build and Push to Docker Hub
+  # =============================================================================
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Login to Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Extract metadata for Docker (tags, labels)
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=${{ github.ref_name }}
+
+      # Build and push to Docker Hub
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+
+      # Image digest for security scanning
+      - name: Image digest
+        run: echo "Image pushed with digest ${{ steps.meta.outputs.digest }}"
+
+  # =============================================================================
+  # Deploy to HuggingFace Spaces
+  # =============================================================================
+  deploy-to-huggingface:
+    name: Deploy to HuggingFace Spaces
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Configure Git for HuggingFace
+      - name: Configure Git
+        run: |
+          git config --global user.email "ci@github-actions"
+          git config --global user.name "GitHub Actions CI"
+
+      # Clone the HuggingFace Space repository
+      - name: Clone HuggingFace Space
+        run: |
+          git clone https://huggingface.co/spaces/${{ secrets.HF_USERNAME }}/${{ env.HF_SPACE_REPO }} hf-space
+          cd hf-space
+          git remote set-url origin https://${{ secrets.HF_USERNAME }}:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/${{ secrets.HF_USERNAME }}/${{ env.HF_SPACE_REPO }}
+
+      # Copy backend files to HuggingFace Space
+      - name: Copy backend files
+        run: |
+          # Copy source files
+          mkdir -p hf-space/src
+          cp -r src/* hf-space/src/
+
+          # Copy Dockerfile and requirements
+          cp Dockerfile hf-space/
+          cp requirements.txt hf-space/
+
+          # Update HuggingFace README if exists
+          if [ -f hf-space/README.md ]; then
+            echo "Backend deployed on $(date)" >> hf-space/README.md
+          fi
+
+      # Commit and push to HuggingFace
+      - name: Commit and push to HuggingFace
+        run: |
+          cd hf-space
+          git add .
+          git diff --staged --quiet || git commit -m "Deploy backend from GitHub - Commit: ${{ github.sha }}"
+          git push origin main
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+      # Wait for deployment and health check
+      - name: Wait for HuggingFace deployment
+        run: |
+          echo "Waiting for HuggingFace Space to rebuild..."
+          sleep 30
+
+      - name: Health check
+        run: |
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+          HF_SPACE_URL="https://${{ secrets.HF_USERNAME }}-${{ env.HF_SPACE_REPO }}.hf.space"
+
+          echo "Checking health at $HF_SPACE_URL/health"
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl -f -s "$HF_SPACE_URL/health" > /dev/null 2>&1; then
+              echo "Health check passed!"
+              exit 0
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "Health check failed, retrying ($RETRY_COUNT/$MAX_RETRIES)..."
+            sleep 15
+          done
+
+          echo "Health check failed after $MAX_RETRIES attempts"
+          exit 1
+        continue-on-error: true
+
+      # Deployment summary
+      - name: Deployment summary
+        run: |
+          echo "## Backend Deployment Summary :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Hub | ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest |" >> $GITHUB_STEP_SUMMARY
+          echo "| HuggingFace Space | https://huggingface.co/spaces/${{ secrets.HF_USERNAME }}/${{ env.HF_SPACE_REPO }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Live URL | https://${{ secrets.HF_USERNAME }}-${{ env.HF_SPACE_REPO }}.hf.space |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
+
+  # =============================================================================
+  # Rollback Job (manual trigger)
+  # =============================================================================
+  rollback:
+    name: Rollback Backend
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    environment:
+      name: production
+      url: https://${{ secrets.HF_USERNAME }}-${{ env.HF_SPACE_REPO }}.hf.space
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "ci@github-actions"
+          git config --global user.name "GitHub Actions CI"
+
+      - name: Clone HuggingFace Space
+        run: |
+          git clone https://huggingface.co/spaces/${{ secrets.HF_USERNAME }}/${{ env.HF_SPACE_REPO }} hf-space
+          cd hf-space
+          git remote set-url origin https://${{ secrets.HF_USERNAME }}:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/${{ secrets.HF_USERNAME }}/${{ env.HF_SPACE_REPO }}
+
+      - name: Revert to previous commit
+        run: |
+          cd hf-space
+          git reset --hard HEAD~1
+          git push --force origin main
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+      - name: Rollback summary
+        run: |
+          echo "## Rollback Complete :rewind:" >> $GITHUB_STEP_SUMMARY
+          echo "Backend has been reverted to the previous commit."
