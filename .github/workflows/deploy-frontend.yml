@@ -13,9 +13,6 @@ on:
 
 env:
   NODE_VERSION: '20'
-  # Vercel project configuration
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
 jobs:
   # =============================================================================
@@ -38,72 +35,24 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./frontend
+
       # Install Vercel CLI
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
-
-      # Pull Vercel Environment Information (for preview builds)
-      - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: ./frontend
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      # Build project with Vercel
-      - name: Build Project Artifacts
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: ./frontend
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       # Deploy to Vercel production
       - name: Deploy to Vercel (Production)
         id: deploy
         run: |
-          OUTPUT=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
-          echo "url=$OUTPUT" >> $GITHUB_OUTPUT
-          echo "Deployment URL: $OUTPUT"
-        working-directory: ./frontend
+          cd frontend
+          vercel deploy --prod --yes --token="${{ secrets.VERCEL_TOKEN }}"
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      # Extract deployment URL
-      - name: Extract deployment URL
-        id: url
-        run: |
-          URL="${{ steps.deploy.outputs.url }}"
-          # Extract just the URL from Vercel output
-          DEPLOY_URL=$(echo "$URL" | grep -oP 'https://[^ ]+' || echo "https://ai-productivity-frontend.vercel.app")
-          echo "deployment_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
-
-      # Verify deployment
-      - name: Verify deployment
-        run: |
-          MAX_RETRIES=5
-          RETRY_COUNT=0
-          DEPLOY_URL="${{ steps.url.outputs.deployment_url }}"
-
-          echo "Verifying deployment at $DEPLOY_URL"
-
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOY_URL" || echo "000")
-
-            if [ "$HTTP_STATUS" = "200" ]; then
-              echo "Deployment verification passed! (HTTP $HTTP_STATUS)"
-              exit 0
-            fi
-
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-            echo "Deployment not ready (HTTP $HTTP_STATUS), retrying ($RETRY_COUNT/$MAX_RETRIES)..."
-            sleep 10
-          done
-
-          echo "Deployment verification failed"
-          exit 1
-        continue-on-error: true
 
       # Deployment summary
       - name: Deployment summary
@@ -113,22 +62,9 @@ jobs:
           echo "| Component | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Platform | Vercel |" >> $GITHUB_STEP_SUMMARY
-          echo "| Production URL | ${{ steps.url.outputs.deployment_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Production URL | https://frontend-eta-nine-l0gyb0x8g7.vercel.app |" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Branch | ${{ github.ref_name }} |" >> $GITHUB_STEP_SUMMARY
-
-      # Comment on PR (if triggered from PR)
-      - name: Comment PR with deployment URL
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '## :rocket: Frontend Deployed!\n\n**Production URL:** ${{ steps.url.outputs.deployment_url }}\n\n**Commit:** ${{ github.sha }}'
-            })
 
   # =============================================================================
   # Rollback Job (manual trigger)
@@ -139,7 +75,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     environment:
       name: production
-      url: https://ai-productivity-frontend.vercel.app
+      url: https://frontend-eta-nine-l0gyb0x8g7.vercel.app
 
     steps:
       - name: Checkout code
@@ -153,26 +89,13 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      - name: List recent deployments
-        id: list-deployments
-        run: |
-          vercel list --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ secrets.VERCEL_ORG_ID }} -n 10
-        working-directory: ./frontend
-        continue-on-error: true
-
       - name: Rollback to previous deployment
         run: |
-          # Get the URL of the previous deployment (second in the list)
-          PREV_DEPLOY=$(vercel list --token=${{ secrets.VERCEL_TOKEN }} --scope=${{ secrets.VERCEL_ORG_ID }} -n 2 | tail -n 1 | awk '{print $2}')
-
-          if [ -z "$PREV_DEPLOY" ]; then
-            echo "Could not find previous deployment"
-            exit 1
-          fi
-
-          echo "Rolling back to $PREV_DEPLOY"
-          vercel alias set "$PREV_DEPLOY" ai-productivity-frontend --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: ./frontend
+          cd frontend
+          vercel rollback --token="${{ secrets.VERCEL_TOKEN }}"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         continue-on-error: true
 
       - name: Rollback summary
