@@ -10,7 +10,7 @@ import { useTasks } from '../../contexts/TaskContext';
  */
 
 const TaskCard = ({ task }) => {
-  const { completeTask, deleteTask, updateTask } = useTasks();
+  const { completeTask, deleteTask } = useTasks();
 
   const priorityColors = {
     low: 'neutral',

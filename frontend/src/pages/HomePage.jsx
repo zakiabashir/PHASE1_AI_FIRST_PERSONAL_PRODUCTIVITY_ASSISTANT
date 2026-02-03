@@ -9,7 +9,7 @@ import ThemeToggle from '../components/common/ThemeToggle';
  */
 
 const HomePage = () => {
-  const { isDark } = useTheme();
+  const { isDark: _isDark } = useTheme();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-950 transition-colors duration-200">

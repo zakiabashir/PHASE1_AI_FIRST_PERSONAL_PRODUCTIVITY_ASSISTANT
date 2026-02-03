@@ -8,6 +8,7 @@ import * as taskService from '../services/taskService';
 
 const TaskContext = createContext(null);
 
+/* eslint-disable react-refresh/only-export-components */
 export const useTasks = () => {
   const context = useContext(TaskContext);
   if (!context) {

@@ -12,7 +12,7 @@ import { useTheme } from '../../contexts/ThemeContext';
  */
 
 const AIChatBox = ({ suggestions = true }) => {
-  const { isDark } = useTheme();
+  const { isDark: _isDark } = useTheme();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);

@@ -10,7 +10,7 @@ import { useTheme } from '../contexts/ThemeContext';
  */
 
 const DashboardPageContent = () => {
-  const { isDark } = useTheme();
+  const { isDark: _isDark } = useTheme();
 
   const quickActions = [
     {

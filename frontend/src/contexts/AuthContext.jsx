@@ -8,6 +8,7 @@ import * as authService from '../services/authService';
 
 const AuthContext = createContext(null);
 
+/* eslint-disable react-refresh/only-export-components */
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -64,7 +65,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       setLoading(true);
-      const data = await authService.register(email, username, password);
+      await authService.register(email, username, password);
       // Auto-login after registration
       return await login(username, password);
     } catch (err) {

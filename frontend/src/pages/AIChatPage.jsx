@@ -1,6 +1,6 @@
 import { TaskProvider } from '../contexts/TaskContext';
 import { useTasks } from '../contexts/TaskContext';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import AIChatBox from '../components/ai/AIChatBox';
 import Header from '../components/layout/Header';
 import { useTheme } from '../contexts/ThemeContext';
@@ -14,7 +14,7 @@ import ThemeToggle from '../components/common/ThemeToggle';
 
 const AIChatPageContent = () => {
   const { fetchTasks } = useTasks();
-  const { isDark } = useTheme();
+  const { isDark: _isDark } = useTheme();
 
   // Set up global refresh function for AI chat to trigger task refresh
   useEffect(() => {
