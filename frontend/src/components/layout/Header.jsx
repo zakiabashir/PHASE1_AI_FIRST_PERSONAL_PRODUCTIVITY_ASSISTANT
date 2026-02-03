@@ -37,7 +37,7 @@ const Header = () => {
             onClick={closeMobileMenu}
           >
             <span className="text-xl sm:text-2xl">🤖</span>
-            <span className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400 hidden xs:block">
+            <span className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400 hidden sm:block">
               AI Assistant
             </span>
           </Link>
@@ -61,7 +61,7 @@ const Header = () => {
           {/* Right side - Theme, User, Logout */}
           <div className="flex items-center gap-2 sm:gap-4">
             <ThemeToggle />
-            <span className="text-sm text-gray-600 dark:text-gray-300 hidden xs:block">
+            <span className="text-sm text-gray-600 dark:text-gray-300 hidden sm:block">
               {user?.username}
             </span>
             <button
