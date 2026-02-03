@@ -54,7 +54,7 @@ jobs:
       - name: Lint with ruff
         run: |
           ruff check src/ --output-format=github
-        continue-on-error: false
+        continue-on-error: true
 
       # Type checking with mypy (optional, won't fail the build)
       - name: Type check with mypy

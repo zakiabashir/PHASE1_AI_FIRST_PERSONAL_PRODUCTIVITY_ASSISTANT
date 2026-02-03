@@ -15,7 +15,7 @@ _load_env_file()
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", '["http://localhost:5173", "http://localhost:3000"]')
 try:
     cors_origins = json.loads(CORS_ORIGINS)
-except:
+except (json.JSONDecodeError, ValueError):
     cors_origins = ["http://localhost:5173", "http://localhost:3000"]
 
 # Create FastAPI app
@@ -34,7 +34,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
+# Include routers (import after env loading is intentional)
+# noqa: E402
 from src.backend.api.routes import auth, tasks, ai
 app.include_router(auth.router)
 app.include_router(tasks.router)
@@ -71,7 +72,7 @@ async def startup_event():
             return
 
         from src.backend.core.database import init_db
-        init_db()
+        await init_db()  # Updated to async call
         import logging
         logging.info("Database initialized successfully")
     except Exception as e:
