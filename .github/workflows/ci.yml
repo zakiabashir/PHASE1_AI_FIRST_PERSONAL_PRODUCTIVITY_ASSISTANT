@@ -13,6 +13,10 @@ on:
       - master
       - main
 
+permissions:
+  contents: read
+  security-events: write
+
 env:
   # Python version for backend
   PYTHON_VERSION: '3.12'
@@ -111,6 +115,7 @@ jobs:
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
+        continue-on-error: true
 
       # Smoke test the Docker image
       - name: Smoke test Docker image
@@ -217,6 +222,7 @@ jobs:
         if: always()
         with:
           sarif_file: 'trivy-fs.sarif'
+        continue-on-error: true
 
   # =============================================================================
   # CI Summary Job
